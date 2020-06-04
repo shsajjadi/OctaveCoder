@@ -1,0 +1,6 @@
+coder 4.4.0
+---------------------
+
+* Initial version compatible with Octave 4.4.0
+* Improved compilation time
+* Imporoved parameter passing and returning
