@@ -455,7 +455,7 @@ namespace coder_compiler
     else if (ismac)
       shared_ext = ".dylib";
 
-    std::string dbg = debug ? "-g" : "-gtoggle";
+    std::string dbg = debug ? "-g" : "-g0";
 
     std::string strp = debug ? "-O2" : "-s";
 
