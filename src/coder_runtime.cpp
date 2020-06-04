@@ -3656,7 +3656,7 @@ namespace coder
           }
       }
 
-    octave_idx_type n_out = 0;
+    int n_out = 0;
 
     int n_blackhole = 0;
 
