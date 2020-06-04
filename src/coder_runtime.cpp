@@ -2088,7 +2088,7 @@ namespace coder
     if (retval.is_defined ())
       return retval.is_true ();
     else
-      error ("%s: undefined value used in conditional Expression");
+      error ("undefined value used in conditional Expression");
 
     return expr_value;
   }
@@ -2201,7 +2201,7 @@ namespace coder
             }
           else
             {
-              error("cannot find %s.oct>%s in %s ", file_name, fcn_name, path);
+              error("cannot find %s.oct>%s in %s ", file_name.c_str (), fcn_name.c_str (), path.c_str ());
             }
 
           break;
@@ -2225,7 +2225,7 @@ namespace coder
             }
           else
             {
-              error("cannot find %s.mex>%s in %s ", file_name, fcn_name, path);
+              error("cannot find %s.mex>%s in %s ", file_name.c_str (), fcn_name.c_str (), path.c_str ());
             }
 
           break;
@@ -2241,12 +2241,12 @@ namespace coder
           if(klass.ok ())
             klass_meth =  klass.get_constructor_function();
           else
-            error("cannot find class %s in path %s", fcn_name, path);
+            error("cannot find class %s in path %s", fcn_name.c_str (), path.c_str ());
 
           if (klass_meth)
             value = klass_meth;
           else
-            error("cannot find class %s in path %s", fcn_name, path);
+            error("cannot find class %s in path %s", fcn_name.c_str (), path.c_str ());
 
           break;
         }
@@ -2261,7 +2261,7 @@ namespace coder
           if (pack_sym)
             value = pack_sym;
           else
-            error("cannot find package %s in path %s", fcn_name, path);
+            error("cannot find package %s in path %s", fcn_name.c_str (), path.c_str ());
 
           break;
         }
