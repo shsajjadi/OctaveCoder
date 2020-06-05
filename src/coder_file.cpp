@@ -111,7 +111,7 @@ namespace coder_compiler
                           if (
                           (fs.is_dir () && (fname[0] == '@' && fname.substr (1) == nm)) 
                           ||
-                          !fs.is_dir () && fname == nm + ".m"
+                          (!fs.is_dir () && fname == nm + ".m")
                           )
                             {
                               cdef_manager& cdm = octave::interpreter::the_interpreter ()->get_cdef_manager ();
