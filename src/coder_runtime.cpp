@@ -3217,7 +3217,7 @@ namespace coder
       {
         std::string msg = e.message ();
 
-        error_with_id (e.err_id (), msg.c_str ());
+        error_with_id (e.err_id (), "%s", msg.c_str ());
       }
 
     return val;
@@ -3536,7 +3536,7 @@ namespace coder
       {
         std::string msg = e.message ();
 
-        error_with_id (e.err_id (), msg.c_str ());
+        error_with_id (e.err_id (), "%s", msg.c_str ());
       }
 
     return (val);
@@ -3782,7 +3782,7 @@ namespace coder
             ult.assign (octave_value::op_asn_eq, valarg, &arg);
 
             if (nargout_retval < n)
-              for (octave_idx_type i = k; i < nel, j < nargout_retval; i++)
+              for (octave_idx_type i = k; i < nel && j < nargout_retval; i++)
                 retval.back () (j++) = rhs_val(i);
 
             k += nel;
@@ -3801,7 +3801,7 @@ namespace coder
                     const octave_value& tmp = rhs_val (k);
 
                     if (tmp.is_undefined ())
-                      error ("element number %d undefined in return list",
+                      error ("element number %lld undefined in return list",
                              k+1);
 
                     ult.assign (octave_value::op_asn_eq, tmp, &arg);
@@ -3815,7 +3815,7 @@ namespace coder
             else
               {
                 if (! ult.is_black_hole ())
-                  error ("element number %d undefined in return list", k+1);
+                  error ("element number %lld undefined in return list", k+1);
 
                 k++;
                 continue;
@@ -4912,7 +4912,7 @@ namespace coder
 
   void call_error(const char* str)
   {
-    error (str);
+    error ("%s", str);
   }
   octave_idx_type ovl_length (const octave_value_list& args)
   {
