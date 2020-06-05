@@ -3801,8 +3801,8 @@ namespace coder
                     const octave_value& tmp = rhs_val (k);
 
                     if (tmp.is_undefined ())
-                      error ("element number %lld undefined in return list",
-                             k+1);
+                      error ("element number %s undefined in return list",
+                             std::to_string (k+1).c_str ());
 
                     ult.assign (octave_value::op_asn_eq, tmp, &arg);
 
@@ -3815,7 +3815,7 @@ namespace coder
             else
               {
                 if (! ult.is_black_hole ())
-                  error ("element number %lld undefined in return list", k+1);
+                  error ("element number %s undefined in return list", std::to_string (k+1).c_str ());
 
                 k++;
                 continue;
