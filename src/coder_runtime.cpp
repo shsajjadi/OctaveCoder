@@ -3782,7 +3782,7 @@ namespace coder
             ult.assign (octave_value::op_asn_eq, valarg, &arg);
 
             if (nargout_retval < n)
-              for (octave_idx_type i = k; i < nel && j < nargout_retval; i++)
+              for (octave_idx_type i = k; i < nel, j < nargout_retval; i++)
                 retval.back () (j++) = rhs_val(i);
 
             k += nel;
