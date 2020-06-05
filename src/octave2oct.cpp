@@ -187,7 +187,7 @@ the global and persistent variables of other .oct files.
           octave_value sym = sym_list (i);
 
           if (! sym.is_string () )
-            error ("coder: cell entry {%d} should contain a name", i+1);
+            error ("coder: cell entry {%lld} should contain a name", i+1);
         }
 
       sym_names.reserve (input_sz);
