@@ -81,7 +81,7 @@ namespace coder_compiler
                 int status = octave::sys::mkdir (dirname, 0777, msg);
 
                 if (status < 0)
-                  error(msg.c_str());
+                  error("%s", msg.c_str());
               }
           }
 
@@ -357,11 +357,12 @@ namespace coder_compiler
     for (const auto& opt : options)
       {
         if (verbose)
-          if (i++ < n_octs)
-            octave_stdout << "\nbuilding " << opt.out_name << ".oct ...\n";
-          else
-            octave_stdout << "\nupdating dependencies of \"" << opt.sym_name << "\" ...\n";
-
+          {
+            if (i++ < n_octs)
+              octave_stdout << "\nbuilding " << opt.out_name << ".oct ...\n";
+            else
+              octave_stdout << "\nupdating dependencies of \"" << opt.sym_name << "\" ...\n";
+          }
         build (opt.file, opt.sym_name, opt.mkoct, opt.mkoct_bridge, opt.out_name, opt.out_dir, debug, keepcc, verbose, compiler_options);
       }
 
