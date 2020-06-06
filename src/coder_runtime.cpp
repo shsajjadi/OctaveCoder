@@ -2088,7 +2088,7 @@ namespace coder
     if (retval.is_defined ())
       return retval.is_true ();
     else
-      error ("%s: undefined value used in conditional Expression");
+      error ("undefined value used in conditional Expression");
 
     return expr_value;
   }
@@ -2201,7 +2201,7 @@ namespace coder
             }
           else
             {
-              error("cannot find %s.oct>%s in %s ", file_name, fcn_name, path);
+              error("cannot find %s.oct>%s in %s ", file_name.c_str (), fcn_name.c_str (), path.c_str ());
             }
 
           break;
@@ -2225,7 +2225,7 @@ namespace coder
             }
           else
             {
-              error("cannot find %s.mex>%s in %s ", file_name, fcn_name, path);
+              error("cannot find %s.mex>%s in %s ", file_name.c_str (), fcn_name.c_str (), path.c_str ());
             }
 
           break;
@@ -2241,12 +2241,12 @@ namespace coder
           if(klass.ok ())
             klass_meth =  klass.get_constructor_function();
           else
-            error("cannot find class %s in path %s", fcn_name, path);
+            error("cannot find class %s in path %s", fcn_name.c_str (), path.c_str ());
 
           if (klass_meth)
             value = klass_meth;
           else
-            error("cannot find class %s in path %s", fcn_name, path);
+            error("cannot find class %s in path %s", fcn_name.c_str (), path.c_str ());
 
           break;
         }
@@ -2261,7 +2261,7 @@ namespace coder
           if (pack_sym)
             value = pack_sym;
           else
-            error("cannot find package %s in path %s", fcn_name, path);
+            error("cannot find package %s in path %s", fcn_name.c_str (), path.c_str ());
 
           break;
         }
@@ -3217,7 +3217,7 @@ namespace coder
       {
         std::string msg = e.message ();
 
-        error_with_id (e.err_id (), msg.c_str ());
+        error_with_id (e.err_id (), "%s", msg.c_str ());
       }
 
     return val;
@@ -3536,7 +3536,7 @@ namespace coder
       {
         std::string msg = e.message ();
 
-        error_with_id (e.err_id (), msg.c_str ());
+        error_with_id (e.err_id (), "%s", msg.c_str ());
       }
 
     return (val);
@@ -3656,7 +3656,7 @@ namespace coder
           }
       }
 
-    octave_idx_type n_out = 0;
+    int n_out = 0;
 
     int n_blackhole = 0;
 
@@ -3801,8 +3801,8 @@ namespace coder
                     const octave_value& tmp = rhs_val (k);
 
                     if (tmp.is_undefined ())
-                      error ("element number %d undefined in return list",
-                             k+1);
+                      error ("element number %s undefined in return list",
+                             std::to_string (k+1).c_str ());
 
                     ult.assign (octave_value::op_asn_eq, tmp, &arg);
 
@@ -3815,7 +3815,7 @@ namespace coder
             else
               {
                 if (! ult.is_black_hole ())
-                  error ("element number %d undefined in return list", k+1);
+                  error ("element number %s undefined in return list", std::to_string (k+1).c_str ());
 
                 k++;
                 continue;
@@ -4912,7 +4912,7 @@ namespace coder
 
   void call_error(const char* str)
   {
-    error (str);
+    error ("%s", str);
   }
   octave_idx_type ovl_length (const octave_value_list& args)
   {
