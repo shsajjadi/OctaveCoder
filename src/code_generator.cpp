@@ -650,34 +650,36 @@ namespace coder_compiler
       }
 
     if ( op_base &&  op_limit)
-      if (op_increment)
-        {
-          os_src << "Colon (" ;
+      {
+        if (op_increment)
+          {
+            os_src << "Colon (" ;
 
             op_base->accept(*this);
 
-          os_src << "," ;
+            os_src << "," ;
 
             op_increment->accept(*this) ;
 
-          os_src << "," ;
+            os_src << "," ;
 
             op_limit->accept(*this) ;
 
-          os_src << ")";
-        }
-      else
-        {
-          os_src 	<< "Colon (";
+            os_src << ")";
+          }
+        else
+          {
+            os_src 	<< "Colon (";
 
             op_base->accept(*this);
 
-          os_src	<< ",";
+            os_src	<< ",";
 
             op_limit->accept(*this);
 
-          os_src  << ")";
-        }
+            os_src  << ")";
+          }
+      }
   }
 
   void

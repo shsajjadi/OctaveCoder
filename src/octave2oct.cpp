@@ -187,7 +187,8 @@ the global and persistent variables of other .oct files.
           octave_value sym = sym_list (i);
 
           if (! sym.is_string () )
-            error ("coder: cell entry {%d} should contain a name", i+1);
+            error ("coder: cell entry {%s} should contain a name",
+                   std::to_string (i+1).c_str ());
         }
 
       sym_names.reserve (input_sz);
