@@ -109,7 +109,7 @@ namespace coder_compiler
                       else // if it is a class
                         {
                           if (
-                          (fs.is_dir () && (fname[0] == '@' && fname.substr (1) == nm)) 
+                          (fs.is_dir () && (fname[0] == '@' && fname.substr (1) == nm))
                           ||
                           (!fs.is_dir () && fname == nm + ".m")
                           )
