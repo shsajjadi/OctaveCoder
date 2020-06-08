@@ -1,4 +1,4 @@
-coder 5.1.0
+coder 1.0.0 - Octave 5.1.0
 ---------------------
 
-* compatible with Octave 5.1.0
+* Internal changes related to Octave refactoring
