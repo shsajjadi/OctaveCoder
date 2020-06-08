@@ -20,7 +20,7 @@ function pre_install (in)
   oct = format_path (fullfile (sourcedir , 'octave2oct.oct'));
 
   for k = 1:numel (cpp)
-    mkoctfile ( '-c', '-O2', '-std=gnu++11', '-gtoggle' , ['-I' sourcedir], '-o', obj{k}, cpp{k});
+    mkoctfile ( '-c', '-O2', '-std=gnu++11', '-g0' , ['-I' sourcedir], '-o', obj{k}, cpp{k});
   endfor
 
   mkoctfile ('-std=gnu++11', '-o', oct, obj {:});
