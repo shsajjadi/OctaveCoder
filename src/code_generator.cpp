@@ -251,20 +251,20 @@ namespace coder_compiler
     return retval;
   }
 
-	code_generator::code_generator( const coder_file_ptr& file,
+  code_generator::code_generator( const coder_file_ptr& file,
     const dgraph& dependency_graph, std::iostream& header, std::iostream& source,
     std::iostream& partial_source, generation_mode mode )
   :
-		m_file(file),
-		dependency_graph(dependency_graph),
+    m_file(file),
+    dependency_graph(dependency_graph),
     traversed_scopes (m_file->traverse()),
-		looping(0),
-		unwinding(0) ,
+    looping(0),
+    unwinding(0) ,
     nconst(0),
     constant_map(),
     os_hdr_ext(header),
-		os_src_ext(source),
-		os_prt_ext(partial_source),
+    os_src_ext(source),
+    os_prt_ext(partial_source),
     mode(mode)
   {
     streams.insert ({&os_hdr, IndentingOStreambuf(os_hdr, 2)});
@@ -521,6 +521,9 @@ namespace coder_compiler
 
         case octave_value::op_struct_ref:
           break;
+
+        default:
+          break;
       }
 
   }
@@ -528,8 +531,6 @@ namespace coder_compiler
   code_generator::visit_boolean_expression (octave::tree_boolean_expression& expr)
   {
     octave_value val;
-
-    bool result = false;
 
     octave::tree_expression *op_lhs = expr.lhs ();
 
@@ -620,6 +621,8 @@ namespace coder_compiler
         case octave_value::op_el_or_not:
           do_binary("OrNot");
           break;
+        default:
+          break;
       }
   }
 
@@ -669,11 +672,11 @@ namespace coder_compiler
           }
         else
           {
-            os_src 	<< "Colon (";
+            os_src  << "Colon (";
 
             op_base->accept(*this);
 
-            os_src	<< ",";
+            os_src  << ",";
 
             op_limit->accept(*this);
 
@@ -1198,7 +1201,7 @@ namespace coder_compiler
 
     std::string type_tags = expr.type_tags ();
 
-    os_src 	<< "Index (";
+    os_src  << "Index (";
 
     if (e)
       e->accept (*this);
@@ -1219,13 +1222,13 @@ namespace coder_compiler
 
     int n = type_tags.length ();
 
-    os_src 	<< "{";
+    os_src  << "{";
 
     for (int i = 0; i < n; i++)
       {
         octave::tree_argument_list *elt = *p++;
 
-        os_src 	<< "{{";
+        os_src  << "{{";
 
         if (type_tags[i] == '.')
           {
@@ -1259,16 +1262,16 @@ namespace coder_compiler
           << "}";
 
         if (i+1 < n)
-          os_src 	<< ", ";
+          os_src  << ", ";
 
         p_arg_names++;
 
         p_dyn_field++;
       }
 
-    os_src 	<< "}";
+    os_src  << "}";
 
-    os_src 	<< ")" ;
+    os_src  << ")" ;
   }
 
   void
@@ -1336,8 +1339,6 @@ namespace coder_compiler
 
     if (lhs)
       {
-        int len = lhs->length ();
-
         os_src << "MultiAssign({";
 
         lhs->accept (*this);
@@ -1751,6 +1752,8 @@ namespace coder_compiler
         case octave_value::op_decr:
           do_post("Postdec");
           break;
+        default:
+          break;
         }
       }
   }
@@ -1785,6 +1788,8 @@ namespace coder_compiler
             break;
           case octave_value::op_decr:
             do_pre("Predec");
+            break;
+          default:
             break;
           }
       }
@@ -1861,6 +1866,8 @@ namespace coder_compiler
             break;
           case octave_value::op_el_or_eq:
             do_assign("AssignElOr");
+            break;
+          default:
             break;
           }
       }
@@ -2221,7 +2228,7 @@ namespace coder_compiler
 
     decrement_indent_level (os_src);
 
-		os_src << "})\n";
+    os_src << "})\n";
 
     decrement_indent_level (os_src);
   }
@@ -2271,10 +2278,10 @@ namespace coder_compiler
   std::string
   code_generator::mangle (const std::string& str)
   {
-	  return str + "_";
+    return str + "_";
   }
 
-	void
+  void
   code_generator::declare_and_define_variables()
   {
     delimiter sep;
@@ -2445,9 +2452,9 @@ namespace coder_compiler
             << "};\n"
             << "AssignByRef(nes_lhs, nes_rhs);\n";
       }
-	}
+  }
 
-	void
+  void
   code_generator::declare_and_define_handle_variables()
   {
     delimiter sep;
@@ -2621,9 +2628,9 @@ namespace coder_compiler
             << "};\n"
             << "AssignByVal(nes_lhs, nes_rhs);\n";
       }
-	}
+  }
 
-	void
+  void
   code_generator::define_nested_functions(octave_user_function& fcnn)
   {
     delimiter sep;
@@ -2738,7 +2745,7 @@ namespace coder_compiler
           }
       }
   }
-	std::string
+  std::string
   code_generator::init_persistent_variables()
   {
     delimiter sep;
@@ -2812,9 +2819,9 @@ namespace coder_compiler
       }
   }
 
-	void
+  void
   code_generator::generate_header(  )
-	{
+  {
     if (mode != gm_compact)
       {
         os_hdr
@@ -2824,9 +2831,9 @@ namespace coder_compiler
       }
 
     os_hdr
-			<< "namespace "
-			<< mangle(m_file->name) << m_file->id
-			<< "\n{\n";
+      << "namespace "
+      << mangle(m_file->name) << m_file->id
+      << "\n{\n";
 
     increment_indent_level (os_hdr);
 
@@ -2882,24 +2889,24 @@ namespace coder_compiler
 
     decrement_indent_level (os_hdr);
 
-		os_hdr << "}\n";
-	}
+    os_hdr << "}\n";
+  }
 
   void
   code_generator::generate_partial_source( )
   {
-		os_prt
+    os_prt
       << "namespace coder{struct Symbol;}\n"
       << "using namespace coder;\n"
-			<< "namespace "
-			<< mangle(m_file->name) << m_file->id
-			<< "\n{\n" ;
+      << "namespace "
+      << mangle(m_file->name) << m_file->id
+      << "\n{\n" ;
 
     increment_indent_level (os_prt);
 
     os_prt
       << "const Symbol& "
-			<< mangle(m_file->name)
+      << mangle(m_file->name)
       << "make(){Symbol* sym = nullptr; return *sym;}\n";
 
     if(m_file->type == file_type::m)
@@ -2930,9 +2937,9 @@ namespace coder_compiler
     os_prt << "}\n";
   }
 
-	void
+  void
   code_generator::generate_full_source( )
-	{
+  {
     auto inclusion = [&](const coder_file_ptr &f)->void
     {
       os_src
@@ -3068,7 +3075,7 @@ namespace coder_compiler
           << ");\nreturn "
           << mangle(m_file->name) ;
 
-        os_src	<< ";\n";
+        os_src  << ";\n";
 
         decrement_indent_level (os_src);
 
@@ -3169,8 +3176,8 @@ namespace coder_compiler
 
     decrement_indent_level (os_src);
 
-		os_src << "}\n";
-	}
+    os_src << "}\n";
+  }
 
   void
   code_generator::generate_builtin_header( )
@@ -3254,9 +3261,9 @@ namespace coder_compiler
     });
 
     os_src
-			<< "namespace "
-			<< "builtins_0"
-			<< "\n{\n";
+      << "namespace "
+      << "builtins_0"
+      << "\n{\n";
 
     increment_indent_level (os_src);
 
