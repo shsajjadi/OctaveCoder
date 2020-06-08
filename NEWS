@@ -1,6 +1,7 @@
-coder 4.4.0
+coder 1.0.0 - Octave 4.4.0
 ---------------------
 
 * Initial version compatible with Octave 4.4.0
 * Improved compilation time
 * Imporoved parameter passing and returning
+* Fixed compiler warnings mainly related to clang
