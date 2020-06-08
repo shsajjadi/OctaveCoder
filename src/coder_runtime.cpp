@@ -292,7 +292,7 @@ namespace coder
   {
 
     Index(Ptr arg, const std::string& type, std::initializer_list<ArgList>&& arg_list)
-    :	base(arg),idx_type(type),arg_list(arg_list){}
+    : base(arg),idx_type(type),arg_list(arg_list){}
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
 
@@ -335,7 +335,7 @@ namespace coder
 
   struct string_literal_sq : Expression
   {
-    explicit string_literal_sq(const std::string&  str) :str(str){	}
+    explicit string_literal_sq(const std::string&  str) :str(str){  }
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
 
@@ -345,7 +345,7 @@ namespace coder
 
   struct string_literal_dq : Expression
   {
-    explicit string_literal_dq(const std::string&  str) :str(str){	}
+    explicit string_literal_dq(const std::string&  str) :str(str){  }
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
 
@@ -356,7 +356,7 @@ namespace coder
 
   struct double_literal : Expression
   {
-    explicit double_literal(double d) :val(d){	}
+    explicit double_literal(double d) :val(d){  }
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
 
@@ -365,7 +365,7 @@ namespace coder
 
   struct complex_literal : Expression
   {
-    explicit complex_literal(double d) :val(d){	}
+    explicit complex_literal(double d) :val(d){ }
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
 
@@ -1059,11 +1059,11 @@ namespace coder
   define_parameter_list_from_arg_vector
     (Ptr_list_list&& param_list, Ptr varargin, const octave_value_list& args);
 
-	void make_return_list (Ptr_list&& ret_list, int nargout);
-	void make_return_list (Ptr_list&& ret_list, int nargout, Ptr varout);
-	void make_return_list (Ptr varout);
-	void make_return_list ();
-	void make_return_val (Ptr expr, int nargout);
+  void make_return_list (Ptr_list&& ret_list, int nargout);
+  void make_return_list (Ptr_list&& ret_list, int nargout, Ptr varout);
+  void make_return_list (Ptr varout);
+  void make_return_list ();
+  void make_return_val (Ptr expr, int nargout);
   void make_return_val ();
 
   inline void AssignByRef( Ptr lhs, Ptr rhs)
@@ -1159,7 +1159,7 @@ namespace coder
   class for_iterator
   {
   public:
-    for_iterator(for_loop_rep *dis, octave_idx_type i): i(i), dis(dis){}
+    for_iterator(for_loop_rep *dis, octave_idx_type i): dis(dis), i(i) {}
     for_iterator operator++() { ++i; return *this; }
     bool operator!=(const for_iterator & other) const
     {return i != other.i; }
@@ -1172,7 +1172,7 @@ namespace coder
   class struct_iterator
   {
   public:
-    struct_iterator(struct_loop_rep *dis, octave_idx_type i): i(i), dis(dis){}
+    struct_iterator(struct_loop_rep *dis, octave_idx_type i): dis(dis), i(i) {}
     struct_iterator operator++() { ++i; return *this; }
     bool operator!=(const struct_iterator & other) const
     {return i != other.i; }
@@ -1209,38 +1209,38 @@ namespace coder
 
 #define GLOBAL(X)\
 {\
-	if (! globals_0::X##make().is_defined ()) {\
-		SetEmpty( globals_0::X##make() );\
-	} \
-	AssignByRef( X , globals_0::X##make() );\
+  if (! globals_0::X##make().is_defined ()) {\
+    SetEmpty( globals_0::X##make() );\
+  } \
+  AssignByRef( X , globals_0::X##make() );\
 }
 
 #define GLOBALASSIGN(X,Y)\
 {\
-	if (! globals_0::X##make().is_defined ()) {\
-		Assign( globals_0::X##make() , Y ).evaluate();\
-	}\
-	AssignByRef( X , globals_0::X##make() );\
+  if (! globals_0::X##make().is_defined ()) {\
+    Assign( globals_0::X##make() , Y ).evaluate();\
+  }\
+  AssignByRef( X , globals_0::X##make() );\
 }
 
 #define PERSISTENT(X)\
 {\
-	if (! persistents.X.is_defined ()) {\
-		if ( X.is_defined ())\
-			call_error("can't make variable X persistent");\
-		SetEmpty( persistents.X );\
-	}\
-	AssignByRef( X , persistents.X );\
+  if (! persistents.X.is_defined ()) {\
+    if ( X.is_defined ())\
+      call_error("can't make variable X persistent");\
+    SetEmpty( persistents.X );\
+  }\
+  AssignByRef( X , persistents.X );\
 }
 
 #define PERSISTENTASSIGN(X,Y)\
 {\
-	if (! persistents.X.is_defined ()) {\
-		if ( X.is_defined ())\
-			call_error("can't make variable X persistent");\
-		Assign( persistents.X , Y ).evaluate();\
-	}\
-	AssignByRef( X , persistents.X );\
+  if (! persistents.X.is_defined ()) {\
+    if ( X.is_defined ())\
+      call_error("can't make variable X persistent");\
+    Assign( persistents.X , Y ).evaluate();\
+  }\
+  AssignByRef( X , persistents.X );\
 }
 
 #define TRY_CATCH( try_code , catch_code )\
@@ -1338,21 +1338,21 @@ namespace coder
 
 #define WHILE(condition , loop_body)\
 {\
-	bool con = bool(condition);\
-	while (con)\
-	{\
-		loop_body\
-		con = bool(condition);\
-	}\
+  bool con = bool(condition);\
+  while (con)\
+  {\
+    loop_body\
+    con = bool(condition);\
+  }\
 }
 
 #define DO_UNTIL(loop_body , condition )\
 {\
-	bool con;\
-	do {\
-		loop_body\
-		con = bool(condition);\
-	} while ( !con );\
+  bool con;\
+  do {\
+    loop_body\
+    con = bool(condition);\
+  } while ( !con );\
 }
 
 #define NARGINCHK ([&args]()\
@@ -1501,7 +1501,7 @@ namespace coder
         {
           const octave_idx_type sz = it->length ();
 
-          if (sz < capacity && cache[sz].size () < capacity )
+          if (sz < (octave_idx_type)capacity && cache[sz].size () < capacity )
             {
               for (octave_idx_type i = 0 ;i < sz; i++)
                 (*it) (i) = octave_value ();
@@ -3123,7 +3123,7 @@ namespace coder
     return (::do_binary_op (ti, op, left, right));
   }
 
-	coder_value
+  coder_value
   unary_expr(Ptr a, int nargout, const Endindex& endkey, bool short_circuit, octave_value::unary_op op)
   {
     octave_value val ( a->evaluate(nargout,endkey,short_circuit), false);
@@ -3134,9 +3134,9 @@ namespace coder
     octave::type_info& ti = octave::interpreter::the_interpreter () ->get_type_info ();
 
     return (::do_unary_op (ti, op, val));
-	}
+  }
 
-	coder_value
+  coder_value
   pre_expr(Ptr a, octave_value::unary_op op)
   {
     std::list<octave_value_list> lst;
@@ -3150,9 +3150,9 @@ namespace coder
     Pool::free (lst);
 
     return retval;
-	}
+  }
 
-	coder_value
+  coder_value
   post_expr(Ptr a, octave_value::unary_op op)
   {
     std::list<octave_value_list> lst;
@@ -3166,9 +3166,9 @@ namespace coder
     Pool::free (lst);
 
     return val ;
-	}
+  }
 
-	coder_value
+  coder_value
   trans_expr(Ptr a, int nargout, const Endindex& endkey, bool short_circuit, octave_value::unary_op op)
   {
     octave_value left ( a->evaluate(nargout,endkey,short_circuit), false);
@@ -3176,14 +3176,14 @@ namespace coder
     octave::type_info& ti = octave::interpreter::the_interpreter () ->get_type_info ();
 
     return (::do_unary_op (ti, op, left));
-	}
+  }
 
-	coder_value
+  coder_value
   assign_expr(Ptr lhs, Ptr rhs, const Endindex& endkey, octave_value::assign_op op)
   {
-		coder_value val ;
+    coder_value val ;
 
-		try
+    try
       {
         std::list<octave_value_list> arg;
 
@@ -3212,8 +3212,8 @@ namespace coder
         val = ult.value (&arg);
 
         Pool::free (arg);
-		  }
-		catch (octave::index_exception& e)
+      }
+    catch (octave::index_exception& e)
       {
         std::string msg = e.message ();
 
@@ -3221,7 +3221,7 @@ namespace coder
       }
 
     return val;
-	}
+  }
 
   coder_value
   compound_binary_expr (Ptr op_lhs, Ptr op_rhs, const Endindex& endkey, octave_value::compound_binary_op op)
@@ -3782,7 +3782,7 @@ namespace coder
             ult.assign (octave_value::op_asn_eq, valarg, &arg);
 
             if (nargout_retval < n)
-              for (octave_idx_type i = k; i < nel, j < nargout_retval; i++)
+              for (octave_idx_type i = k; i < nel && j < nargout_retval; i++)
                 retval.back () (j++) = rhs_val(i);
 
             k += nel;
@@ -4476,8 +4476,6 @@ namespace coder
     auto val = [&](int v) {return input (v).idx_type_value ();};
 
     auto str = [&](int v) {return input (v).string_value ();};
-
-    int con = 0;
 
     if (nout == 1 && (arg.length () == 3 || arg.length () == 4))
       {

@@ -13,7 +13,7 @@
 namespace coder_compiler
 {
   file_time::file_time(const std::string& filename)
-  : m_mtime(0), ok(false)
+  : ok(false), m_mtime(0)
   {
     struct stat st;
     int result = ::stat(filename.c_str (), &st);
@@ -44,7 +44,7 @@ namespace coder_compiler
     while (p != lst.end ())
       {
         octave::tree_expression *elt = *p++;
-    
+
         if (elt)
           {
             if (m_do_lvalue_check && ! elt->lvalue_ok ())
@@ -52,9 +52,9 @@ namespace coder_compiler
 
             elt->accept (*this);
           }
-      } 
+      }
   }
-  
+
   void
   semantic_analyser::visit_simple_for_command (octave::tree_simple_for_command& cmd)
   {
@@ -194,9 +194,6 @@ namespace coder_compiler
 
     if (param_list)
       {
-        octave::symbol_table& octave_symtab =
-          octave::interpreter::the_interpreter ()->get_symbol_table();
-
         for (octave::tree_decl_elt *elt : *param_list)
           {
             octave::tree_identifier *id = elt->ident ();
@@ -242,8 +239,6 @@ namespace coder_compiler
   semantic_analyser::visit_octave_user_function (octave_user_function& fcnn)
   {
     octave::symbol_scope scope = fcnn.scope() ;
-
-    octave::symbol_record::context_id context = scope.current_context ();
 
     octave::symbol_table& octave_symtab = octave::interpreter::the_interpreter ()->get_symbol_table();
 
@@ -353,8 +348,6 @@ namespace coder_compiler
 
     for (const auto& sub: fcnn.subfunctions())
       {
-        const auto& nm = sub.first;
-
         const auto& f = sub.second;
 
         octave_function *fcn = f.function_value (true);
@@ -974,8 +967,6 @@ namespace coder_compiler
     auto range = dependent_files.equal_range(global_file);
 
     bool create_new_file = false;
-
-    bool first_fount = false;
 
     if(range.first != dependent_files.end() && range.first != range.second)
       {

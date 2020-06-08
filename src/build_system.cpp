@@ -26,7 +26,7 @@ namespace coder_compiler
   std::string
   mangle (const std::string& str)
   {
-	  return str + "_";
+    return str + "_";
   }
 
   void
@@ -60,9 +60,13 @@ namespace coder_compiler
     const std::string& cache_dir
   )
   :
-    mode(mode),
+    analyser(),
+    cache_updated(false),
+    new_or_updated_files(),
+    cache_index(),
+    dyn_oct_list(),
     cache_directory(cache_dir),
-    analyser()
+    mode(mode)       
   {
     if (mode == bm_static || mode == bm_dynamic)
       {
