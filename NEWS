@@ -1,3 +1,10 @@
+coder 1.0.1 - Octave 4.4.0  - 2020-11-18
+---------------------
+
+* Fix segfault related to capturing variables
+* Fix errors when printing anonymous function handles
+
+
 coder 1.0.0 - Octave 4.4.0
 ---------------------
 
