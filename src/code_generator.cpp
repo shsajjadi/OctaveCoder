@@ -2419,7 +2419,7 @@ namespace coder_compiler
 
         if (! special_names.empty())
           os_src
-            << "auto special_name_rhs = Ptr_list{"
+            << "Ptr special_name_rhs[] = {"
             << special_names
             << "};\n"
 
@@ -2427,7 +2427,7 @@ namespace coder_compiler
             << special_names
             << ";\n"
 
-            << "auto special_name_lhs = Ptr_list{"
+            << "Ptr special_name_lhs[] = {"
             << special_names
             << "};\n"
 
@@ -2439,7 +2439,7 @@ namespace coder_compiler
 
         if (! nested_names.empty())
           os_src
-            << "auto nes_rhs = Ptr_list{"
+            << "Ptr nes_rhs[] = {"
             << nested_names
             << "};\n"
 
@@ -2447,7 +2447,7 @@ namespace coder_compiler
             << nested_names
             << ";\n"
 
-            << "auto nes_lhs = Ptr_list{"
+            << "Ptr nes_lhs[] = {"
             << nested_names
             << "};\n"
             << "AssignByRef(nes_lhs, nes_rhs);\n";
@@ -2595,7 +2595,7 @@ namespace coder_compiler
 
         if (! special_names.empty())
           os_src
-            << "auto special_name_rhs = Ptr_list{"
+            << "Ptr special_name_rhs[] = {"
             << special_names
             << "};\n"
 
@@ -2603,7 +2603,7 @@ namespace coder_compiler
             << special_names
             << ";\n"
 
-            << "auto special_name_lhs = Ptr_list{"
+            << "Ptr special_name_lhs[] = {"
             << special_names
             << "};\n"
 
@@ -2615,7 +2615,7 @@ namespace coder_compiler
 
         if (! nested_names.empty())
           os_src
-            << "auto nes_rhs = Ptr_list{"
+            << "Ptr nes_rhs[] = {"
             << nested_names
             << "};\n"
 
@@ -2623,7 +2623,7 @@ namespace coder_compiler
             << nested_names
             << ";\n"
 
-            << "auto nes_lhs = Ptr_list{"
+            << "Ptr nes_lhs[] = {"
             << nested_names
             << "};\n"
             << "AssignByVal(nes_lhs, nes_rhs);\n";
@@ -2759,7 +2759,7 @@ namespace coder_compiler
     if (!persistent_vars.empty())
       {
         ss
-          << "auto per_rhs = Ptr_list{";
+          << "Ptr per_rhs[] = {";
         ss << sep();
 
         for(const auto& symbol : persistent_vars)
@@ -2773,7 +2773,7 @@ namespace coder_compiler
           << "};\n";
 
         ss
-          << "auto per_lhs = Ptr_list{";
+          << "Ptr per_lhs[] = {";
 
         ss << sep();
 
