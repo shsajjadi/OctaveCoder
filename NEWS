@@ -1,4 +1,4 @@
-coder 1.0.1 - Octave 5.1.0  - 2020-11-18
+coder 1.0.1 - Octave 5.2.0  - 2020-11-18
 ---------------------
 
 * Fix segfault related to capturing variables
