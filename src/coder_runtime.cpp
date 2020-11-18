@@ -3998,7 +3998,7 @@ namespace coder
     return coder_value(new octave_fcn_handle (octave_value(static_cast<Symbol&>(op_rhs.get()).get_value(), true), name));
   }
 
-  Anonymous::Anonymous(octave_base_value* arg) : value(new octave_fcn_handle (octave_value(arg))){}
+  Anonymous::Anonymous(octave_base_value* arg) : value(new octave_fcn_handle (octave_value(arg), "<coderanonymous>")){}
 
   coder_value
   Anonymous::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
