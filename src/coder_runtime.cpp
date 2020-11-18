@@ -1071,9 +1071,10 @@ namespace coder
     static_cast<Symbol&>(lhs.get()).get_reference() = static_cast<Symbol&>(rhs.get()).get_reference();
   }
 
-  inline void AssignByRef( Ptr_list& lhs, Ptr_list& rhs)
+template <typename array>
+  void AssignByRef( array& lhs, array& rhs)
   {
-    auto in = rhs.begin();
+    auto in = rhs;
 
     for (auto& out: lhs )
       {
@@ -1086,9 +1087,10 @@ namespace coder
     static_cast<Symbol&>(lhs.get()) = static_cast<Symbol&>(rhs.get());
   }
 
-  inline void AssignByVal( Ptr_list& lhs, Ptr_list& rhs)
+template <typename array>
+  void AssignByVal( array& lhs, array& rhs)
   {
-    auto in = rhs.begin();
+    auto in = rhs;
 
     for (auto& out: lhs )
       {
@@ -1096,9 +1098,76 @@ namespace coder
       }
   }
 
-  void AssignByRefInit( Ptr_list& lhs, const Ptr_list& rhs);
-  void AssignByRefCon( Ptr_list& lhs, const Ptr_list& rhs,const Ptr_list& macr);
-  void AssignByValCon( Ptr_list& lhs, const Ptr_list& rhs,const Ptr_list& macr);
+template <typename array>
+  void AssignByRefInit( array& lhs, const array& rhs)
+  {
+    auto in = rhs;
+
+    for (auto& out: lhs )
+      {
+        auto& in_sym = static_cast<Symbol&>(in->get());
+
+        if (in_sym.is_defined() && !in_sym.is_function())
+          AssignByRef(out,*in++);
+      }
+  }
+
+template <typename array>
+  void AssignByRefCon( array& lhs, const array& rhs,const Ptr_list& macr)
+  {
+    auto sym_name = rhs;
+
+    auto fcn_impl = macr.begin();
+
+    for (auto& out: lhs )
+      {
+        auto& name = static_cast<Symbol&>(sym_name->get());
+
+        if(name.is_defined() )
+          {
+            if(name.is_function())
+              {
+                AssignByVal(out, *fcn_impl);
+              }
+            else
+              AssignByRef(out,*sym_name);
+          }
+        else
+          AssignByRef(out,*sym_name);
+
+        sym_name++;
+
+        fcn_impl++;
+      }
+  }
+
+template <typename array>
+  void AssignByValCon( array& lhs, const array& rhs,const Ptr_list& macr)
+  {
+    auto sym_name = rhs;
+
+    auto fcn_impl = macr.begin ();
+
+    for (auto& out: lhs )
+      {
+        auto& name = static_cast<Symbol&>(sym_name->get());
+        if(name.is_defined() )
+          {
+            if(name.is_function())
+              {
+                AssignByVal(out,*fcn_impl);
+              }
+            else
+              AssignByVal(out,*sym_name);
+          }
+        else
+          AssignByVal(out,*sym_name);
+
+        sym_name++;
+
+        fcn_impl++;
+      }
+  }
 
   void SetEmpty(Symbol& id);
 
@@ -4333,74 +4402,6 @@ namespace coder
     auto retval = Pool::alloc ();
 
     Pool::push_result (retval);
-  }
-
-  void AssignByRefInit( Ptr_list& lhs, const Ptr_list& rhs)
-  {
-    auto in = rhs.begin();
-
-    for (auto& out: lhs )
-      {
-        auto& in_sym = static_cast<Symbol&>(in->get());
-
-        if (in_sym.get_value()->is_defined() && !in_sym.get_value()->is_function())
-          AssignByRef(out,*in++);
-      }
-  }
-
-  void AssignByRefCon( Ptr_list& lhs, const Ptr_list& rhs,const Ptr_list& macr)
-  {
-    auto sym_name = rhs.begin();
-
-    auto fcn_impl = macr.begin();
-
-    for (auto& out: lhs )
-      {
-        auto& name = static_cast<Symbol&>(sym_name->get());
-
-        if(name.get_value()->is_defined() )
-          {
-            if(name.get_value()->is_function())
-              {
-                AssignByVal(out, *fcn_impl);
-              }
-            else
-              AssignByRef(out,*sym_name);
-          }
-        else
-          AssignByRef(out,*sym_name);
-
-        sym_name++;
-
-        fcn_impl++;
-      }
-  }
-
-  void AssignByValCon( Ptr_list& lhs, const Ptr_list& rhs,const Ptr_list& macr)
-  {
-    auto sym_name = rhs.begin();
-
-    auto fcn_impl = macr.begin();
-
-    for (auto& out: lhs )
-      {
-        auto& name = static_cast<Symbol&>(sym_name->get());
-        if(name.get_value()->is_defined() )
-          {
-            if(name.get_value()->is_function())
-              {
-                AssignByVal(out,*fcn_impl);
-              }
-            else
-              AssignByVal(out,*sym_name);
-          }
-        else
-          AssignByVal(out,*sym_name);
-
-        sym_name++;
-
-        fcn_impl++;
-      }
   }
 
   void SetEmpty(Symbol& id)
