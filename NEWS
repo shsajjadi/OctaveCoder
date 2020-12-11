@@ -1,11 +1,20 @@
-coder 1.0.1 - Octave 5.2.0  - 2020-11-18
+coder 1.5.0 - 2020-12-11
+---------------------
+
+* Instead of creating branches per Octave versions conditional inclusion is used to differentiate Octave versions
+* Fixed multiple bugs that is also fixed in Octave  6.1.0
+* refactored returning arguments and Fixed leak in the argument list pool
+
+coder 1.0.1 - 2020-11-18
 ---------------------
 
 * Fix segfault related to capturing variables
 * Fix errors when printing anonymous function handles
 
-
-coder 1.0.0 - Octave 5.2.0
+coder 1.0.0 - 2020-06-08
 ---------------------
 
-* Except the version number there is no differnece with coder 1.0.0 - Octave 5.1.0
+* Initial version
+* Improved compilation time
+* Improved parameter passing and returning
+* Fixed compiler warnings mainly related to clang

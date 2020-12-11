@@ -1,15 +1,26 @@
 #include <cctype>
 #include <fstream>
 #include <iostream>
+#include <ostream>
 
 #include <octave/builtin-defun-decls.h>
 #include <octave/dir-ops.h>
 #include <octave/file-ops.h>
 #include <octave/file-stat.h>
+#include <octave/load-save.h>
 #include <octave/ls-mat5.h>
 #include <octave/oct-env.h>
 #include <octave/oct.h>
 #include <octave/pager.h>
+#include <octave/parse.h>
+#include <octave/version.h>
+
+#if OCTAVE_MAJOR_VERSION >= 5
+#include <octave/ls-mat4.h>
+#include <octave/mach-info.h>
+#include <octave/oct-time.h>
+#include <octave/ov.h>
+#endif
 
 #include "build_system.h"
 #include "code_generator.h"
@@ -17,7 +28,6 @@
 #include "coder_runtime.h"
 #include "coder_symtab.h"
 #include "dgraph.h"
-#include "octave_refactored.h"
 #include "semantic_analyser.h"
 
 namespace coder_compiler
@@ -55,6 +65,63 @@ namespace coder_compiler
     std::cout << "}\n";
   }
 
+#if OCTAVE_MAJOR_VERSION >= 5
+  static void write_header (std::ostream& os, const octave::load_save_format& fmt)
+  {
+    switch (fmt.type ())
+      {
+      case octave::load_save_system::MAT5_BINARY:
+      case octave::load_save_system::MAT7_BINARY:
+        {
+          char const *versionmagic;
+          char headertext[128];
+          octave::sys::gmtime now;
+
+          // ISO 8601 format date
+          const char *matlab_format = "MATLAB 5.0 MAT-file, written by Octave "
+            OCTAVE_VERSION ", %Y-%m-%d %T UTC";
+          std::string comment_string = now.strftime (matlab_format);
+
+          size_t len = std::min (comment_string.length (), static_cast<size_t> (124));
+          memset (headertext, ' ', 124);
+          memcpy (headertext, comment_string.data (), len);
+
+          // The first pair of bytes give the version of the MAT file
+          // format.  The second pair of bytes form a magic number which
+          // signals a MAT file.  MAT file data are always written in
+          // native byte order.  The order of the bytes in the second
+          // pair indicates whether the file was written by a big- or
+          // little-endian machine.  However, the version number is
+          // written in the *opposite* byte order from everything else!
+          if (octave::mach_info::words_big_endian ())
+            versionmagic = "\x01\x00\x4d\x49"; // this machine is big endian
+          else
+            versionmagic = "\x00\x01\x49\x4d"; // this machine is little endian
+
+          memcpy (headertext+124, versionmagic, 4);
+          os.write (headertext, 128);
+        }
+
+        break;
+
+      default:
+        break;
+      }
+  }
+#endif
+
+  static bool write_mat (std::ostream& os, const octave_value& val)
+  {
+#if OCTAVE_MAJOR_VERSION >= 5
+    octave::load_save_format format = octave::load_save_system::MAT5_BINARY;
+#else
+    load_save_format format = LS_MAT5_BINARY;
+#endif
+    write_header (os, format);
+
+    return save_mat5_binary_element (os, val, "index", false, false, false, false);
+  }
+
   build_system::build_system (
     build_mode mode,
     const std::string& cache_dir
@@ -66,7 +133,7 @@ namespace coder_compiler
     cache_index(),
     dyn_oct_list(),
     cache_directory(cache_dir),
-    mode(mode)       
+    mode(mode)
   {
     if (mode == bm_static || mode == bm_dynamic)
       {
@@ -257,6 +324,9 @@ namespace coder_compiler
     std::set<std::string> updated_octs;
 
     bool new_octs_added = false;
+
+    if (verbose)
+      octave_stdout << "\nanalysing dependencies ...\n";
 
     if (mode == bm_dynamic)
       cached_oct_list = analyser.read_oct_list (dyn_oct_list);
@@ -521,7 +591,9 @@ namespace coder_compiler
 
       octave::sys::file_stat d_stat (bin);
 
-      bool recompile = ! h_stat.exists () || ! c_stat.exists () || ! o_stat.exists () || (mode == bm_dynamic && ! d_stat.exists ());
+      bool recompile = ! h_stat.exists () || ! c_stat.exists () || ! o_stat.exists ();
+
+      bool relink = mode == bm_dynamic && (recompile || ! d_stat.exists ());
 
       if (! h_stat.exists () || ! c_stat.exists ())
         {
@@ -535,7 +607,7 @@ namespace coder_compiler
 
             std::ofstream source(cpp);
 
-            source << "#include \"coder.h\"\n";
+            source << "#define CODER_BUILDMODE_NOT_SINGLE 1\n";
 
             source << runtime_source ();
 
@@ -558,19 +630,19 @@ namespace coder_compiler
             octave_value (coptions),
             octave_value(quote(cpp))
            ));
+        }
 
-          if (mode == bm_dynamic )
-            {
-              Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
+      if (relink)
+        {
+          Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
 
-              call_mkoctfile (
-                ovl(
-                octave_value(quote(obj)),
-                octave_value("-Wl,--output," + quote(bin) + strpl)
-                ));
+          call_mkoctfile (
+            ovl(
+            octave_value(quote(obj)),
+            octave_value("-Wl,--output," + quote(bin) + strpl)
+            ));
 
-              Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS) ));
-            }
+          Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS) ));
         }
     };
 
@@ -682,12 +754,12 @@ namespace coder_compiler
             {
               octave_stdout << "  linking " << filename + shared_ext << "\n";
             }
-          
-          std::string dep_names = "-lcoder ";
+
+          octave_value_list dep_names = ovl (octave_value ("-lcoder"));
 
           for(const auto& f: analyser.dependency ().at(file) )
             {
-              dep_names += "-l" + mangle(lowercase (f->name)) + std::to_string(f->id) + " ";
+              dep_names.append ( octave_value ("-l" + mangle(lowercase (f->name)) + std::to_string(f->id)));
             }
 
           Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
@@ -696,9 +768,8 @@ namespace coder_compiler
             ovl(
             octave_value("-Wl,-o," + quote(bin) + strpl),
             octave_value(quote(obj)),
-            octave_value(quote("-L" + bindir)),
-            dep_names
-            )
+            octave_value(quote("-L" + bindir))
+            ).append (dep_names)
           );
 
           Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS) ));
@@ -770,21 +841,20 @@ namespace coder_compiler
         octave_value(quote(cpp))
          ));
 
-      std::string dep_names = "-lcoder -l" + filename + " ";
+      octave_value_list dep_names = ovl(octave_value ("-lcoder"), octave_value ("-l" + filename));
 
       Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
 
       call_mkoctfile (
         ovl(octave_value("-Wl,-o," + quote(bin)+ strpl),
         octave_value(quote(obj)),
-        octave_value(quote("-L" + bindir)),
-        dep_names
-        ));
+        octave_value(quote("-L" + bindir))
+        ).append (dep_names));
 
       Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS) ));
     };
 
-    auto mkoctfile  = [&](const coder_file_ptr& file,
+    auto mkoctfile = [&](const coder_file_ptr& file,
       const std::string& sym_name,
       const std::string& out_name,
       const std::string& out_dir,

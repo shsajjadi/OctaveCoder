@@ -1,7 +1,9 @@
 function pre_install (in)
+
   disp ('Installing package coder. It may take a while. Please wait ...')
   basedir = fileparts(mfilename ('fullpath'));
   sourcedir = format_path(fullfile(basedir, 'src'));
+
   cppnames = ...
     {
       'dgraph'
@@ -10,7 +12,6 @@ function pre_install (in)
       'semantic_analyser'
       'code_generator'
       'coder_runtime'
-      'octave_refactored'
       'build_system'
       'octave2oct'
     };
@@ -23,7 +24,7 @@ function pre_install (in)
     mkoctfile ( '-c', '-O2', '-std=gnu++11', '-g0' , ['-I' sourcedir], '-o', obj{k}, cpp{k});
   endfor
 
-  mkoctfile ('-std=gnu++11', '-o', oct, obj {:});
+  mkoctfile ('-o', oct, obj {:});
 
 endfunction
 

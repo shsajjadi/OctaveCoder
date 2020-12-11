@@ -6,12 +6,13 @@ namespace coder_compiler
   {
     static const std::string s = R"header(
 
-#include "octave-config.h"
+#include "version.h"
 #include <type_traits>
 #include <functional>
 
-
+#if OCTAVE_MAJOR_VERSION < 6
 extern int buffer_error_messages;
+#endif
 
 class octave_value_list;
 
@@ -22,6 +23,8 @@ namespace octave
   class tree_evaluator;
 
   class interpreter;
+
+  class execution_exception;
 }
 
 class octave_value;
@@ -39,7 +42,7 @@ namespace coder
   typedef octave_value_list (*coder_method_meth) (octave::interpreter&,
                                      const octave_value_list&, int);
 
-  typedef void (*stateless_function) (const octave_value_list&, int);
+    typedef void (*stateless_function) (coder_value_list&, const octave_value_list&, int);
 
   struct coder_value
   {
@@ -77,7 +80,7 @@ namespace coder
 
   octave_base_value* fcn2ov(stateless_function m);
 
-  octave_base_value* stdfcntoov (std::function<void(const octave_value_list&,int)> fcn);
+  octave_base_value* stdfcntoov (std::function<void(coder_value_list&, const octave_value_list&,int)> fcn);
 
   template <typename F, typename std::enable_if<
             !std::is_convertible<F,stateless_function>::value, int>::type = 0 >
@@ -125,24 +128,24 @@ namespace coder
     void define (const octave_value& v) ;
 
     void assign (int op,
-                              const octave_value& rhs, void* idx) ;
+                              const octave_value& rhs, coder_value_list& idx) ;
 
     void numel (octave_idx_type n) { m_nel = n; }
 
     octave_idx_type numel (void) const { return m_nel; }
 
     void set_index (const std::string& t,
-                                 void* i, void* idx);
+                                 coder_value_list& i, coder_value_list& idx);
 
-    void clear_index (void* idx) ;
+    void clear_index (coder_value_list& idx) ;
 
     std::string index_type (void) const { return m_type; }
 
-    bool index_is_empty (void* idx) const;
+    bool index_is_empty (coder_value_list& idx) const;
 
-    void do_unary_op (int op, void* idx) ;
+    void do_unary_op (int op, coder_value_list& idx) ;
 
-    coder_value value (void* idx) const;
+    coder_value value (coder_value_list& idx) const;
 
   private:
 
@@ -176,29 +179,12 @@ namespace coder
   using Ptr_list = std::initializer_list<Ptr>;
   using Ptr_list_list = std::initializer_list<Ptr_list>;
 
-  struct ArgList
-  {
-    ArgList(Ptr_list&& list, bool magic_end = false): list(list), m_has_magic_end(magic_end){}
-
-    bool has_magic_end () const
-    {
-      return m_has_magic_end;
-    }
-
-    size_t size() const
-    {
-      return list.size();
-    }
-
-    Ptr_list& list;
-
-    bool m_has_magic_end;
-  };
-
   struct Endindex
   {
-    Endindex(octave_base_value* object, int position, int num):
+    Endindex(octave_base_value* object, const void* type, const coder_value_list* idx, int position, int num):
       indexed_object(object),
+      idx_type(type),
+      idx_list(idx),
       index_position(position),
       num_indices(num)
       {}
@@ -207,8 +193,9 @@ namespace coder
 
     coder_value compute_end() const;
 
-  private:
     mutable octave_base_value *indexed_object = nullptr;
+    const void* idx_type = nullptr;
+    const coder_value_list* idx_list = nullptr;
     int index_position = 0;
     int num_indices = 0;
   };
@@ -219,10 +206,9 @@ namespace coder
 
     virtual coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
 
+    virtual void evaluate_n(coder_value_list& output,int nargout=1, const Endindex& endkey=Endindex(), bool short_circuit=false) ;
 
-    virtual void evaluate_n(int nargout=1, const Endindex& endkey=Endindex(), bool short_circuit=false) ;
-
-    virtual coder_lvalue lvalue(void*){return coder_lvalue();}
+    virtual coder_lvalue lvalue(coder_value_list&){return coder_lvalue();}
 
     virtual bool is_Symbol() {return false;}
 
@@ -241,9 +227,10 @@ namespace coder
     Symbol (Symbol&& other);
 
     Symbol& operator=(const Symbol& other);
-    Symbol& operator=(Symbol&& other) ;
-    ~Symbol() ;
 
+    Symbol& operator=(Symbol&& other) ;
+
+    ~Symbol() ;
 
     bool is_Symbol() {return true;}
 
@@ -266,16 +253,16 @@ namespace coder
 
     coder_value
     evaluate(int nargout=0,
-    const Endindex& endkey=Endindex(), bool short_circuit=false);
-
-    void
-    evaluate_n(int nargout=1,
       const Endindex& endkey=Endindex(), bool short_circuit=false);
 
-    coder_lvalue lvalue(void*);
+    void
+    evaluate_n(coder_value_list& output,int nargout=1,
+      const Endindex& endkey=Endindex(), bool short_circuit=false);
+
+    coder_lvalue lvalue(coder_value_list&);
 
     void
-    call (int nargout, const octave_value_list& args);
+    call (coder_value_list& output, int nargout, const octave_value_list& args);
 
     bool
     is_defined () const;
@@ -291,21 +278,21 @@ namespace coder
   struct Index : Expression
   {
 
-    Index(Ptr arg, const std::string& type, std::initializer_list<ArgList>&& arg_list)
+    Index(Ptr arg, const std::string& type, Ptr_list_list&& arg_list)
     : base(arg),idx_type(type),arg_list(arg_list){}
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
 
-    void evaluate_n(int nargout=1, const Endindex& endkey=Endindex(), bool short_circuit=false) ;
+    void evaluate_n(coder_value_list& output,int nargout=1, const Endindex& endkey=Endindex(), bool short_circuit=false) ;
 
     coder_lvalue
-    lvalue (void*);
+    lvalue (coder_value_list&);
 
     Ptr base;
 
     std::string idx_type;
 
-    std::initializer_list<ArgList>& arg_list;
+    Ptr_list_list& arg_list;
   };
 
   struct Null : Expression
@@ -313,7 +300,6 @@ namespace coder
     Null () = default;
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
-
   };
 
   struct NullStr : Expression
@@ -330,7 +316,6 @@ namespace coder
     NullSqStr()=default;
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
-
   };
 
   struct string_literal_sq : Expression
@@ -338,7 +323,6 @@ namespace coder
     explicit string_literal_sq(const std::string&  str) :str(str){  }
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
-
 
     std::string str;
   };
@@ -854,7 +838,7 @@ namespace coder
   {
     MultiAssign(Ptr_list&& lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
-    void evaluate_n(int nargout=1, const Endindex& endkey=Endindex(), bool short_circuit=false) ;
+    void evaluate_n(coder_value_list& output,int nargout=1, const Endindex& endkey=Endindex(), bool short_circuit=false) ;
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false) ;
 
@@ -1042,7 +1026,7 @@ namespace coder
 
   struct Tilde : public Expression
   {
-    coder_lvalue lvalue(void*);
+    coder_lvalue lvalue(coder_value_list&);
   };
 
   bool
@@ -1059,24 +1043,27 @@ namespace coder
   define_parameter_list_from_arg_vector
     (Ptr_list_list&& param_list, Ptr varargin, const octave_value_list& args);
 
-  void make_return_list (Ptr_list&& ret_list, int nargout);
-  void make_return_list (Ptr_list&& ret_list, int nargout, Ptr varout);
-  void make_return_list (Ptr varout);
-  void make_return_list ();
-  void make_return_val (Ptr expr, int nargout);
-  void make_return_val ();
+  void make_return_list (coder_value_list&, Ptr_list&& ret_list, int nargout);
+  void make_return_list (coder_value_list&,Ptr_list&& ret_list, int nargout, Ptr varout);
+  void make_return_list (coder_value_list&,Ptr varout);
+  void make_return_list (coder_value_list&);
+  void make_return_val (coder_value_list&,Ptr expr, int nargout);
+  void make_return_val (coder_value_list&);
 
   inline void AssignByRef( Ptr lhs, Ptr rhs)
   {
     static_cast<Symbol&>(lhs.get()).get_reference() = static_cast<Symbol&>(rhs.get()).get_reference();
   }
 
-template <typename array>
-  void AssignByRef( array& lhs, array& rhs)
-  {
-    auto in = rhs;
+template <int size>
+    using array = Ptr(&)[size];
 
-    for (auto& out: lhs )
+template <int size>
+  void AssignByRef( array<size>& lhs, array<size>& rhs)
+  {
+    Ptr* in = rhs;
+
+    for (Ptr out: lhs )
       {
         AssignByRef(out,*in++);
       }
@@ -1087,23 +1074,23 @@ template <typename array>
     static_cast<Symbol&>(lhs.get()) = static_cast<Symbol&>(rhs.get());
   }
 
-template <typename array>
-  void AssignByVal( array& lhs, array& rhs)
+template <int size>
+  void AssignByVal( array<size>& lhs, array<size>& rhs)
   {
-    auto in = rhs;
+    Ptr* in = rhs;
 
-    for (auto& out: lhs )
+    for (Ptr out: lhs )
       {
         AssignByVal(out,*in++);
       }
   }
 
-template <typename array>
-  void AssignByRefInit( array& lhs, const array& rhs)
+template <int size>
+  void AssignByRefInit( array<size>& lhs, array<size>& rhs)
   {
-    auto in = rhs;
+    Ptr* in = rhs;
 
-    for (auto& out: lhs )
+    for (Ptr out: lhs )
       {
         auto& in_sym = static_cast<Symbol&>(in->get());
 
@@ -1112,14 +1099,14 @@ template <typename array>
       }
   }
 
-template <typename array>
-  void AssignByRefCon( array& lhs, const array& rhs,const Ptr_list& macr)
+template <int size>
+  void AssignByRefCon( array<size>& lhs, array<size>& rhs,const Ptr_list& macr)
   {
-    auto sym_name = rhs;
+    Ptr* sym_name = rhs;
 
     auto fcn_impl = macr.begin();
 
-    for (auto& out: lhs )
+    for (Ptr out: lhs )
       {
         auto& name = static_cast<Symbol&>(sym_name->get());
 
@@ -1141,14 +1128,14 @@ template <typename array>
       }
   }
 
-template <typename array>
-  void AssignByValCon( array& lhs, const array& rhs,const Ptr_list& macr)
+template <int size>
+  void AssignByValCon( array<size>& lhs, array<size>& rhs,const Ptr_list& macr)
   {
-    auto sym_name = rhs;
+    Ptr* sym_name = rhs;
 
     auto fcn_impl = macr.begin ();
 
-    for (auto& out: lhs )
+    for (Ptr out: lhs )
       {
         auto& name = static_cast<Symbol&>(sym_name->get());
         if(name.is_defined() )
@@ -1171,27 +1158,26 @@ template <typename array>
 
   void SetEmpty(Symbol& id);
 
-
   bool isargout1 (int nargout, double k);
 
   void
-  call_narginchk (int nargin, const octave_value_list& arg);
+  call_narginchk (coder_value_list& output, int nargin, const octave_value_list& arg);
 
   void
-  call_nargoutchk (int nargout, const octave_value_list& arg, int nout);
+  call_nargoutchk (coder_value_list& output, int nargout, const octave_value_list& arg, int nout);
 
   void
-  call_nargin (int nargin, const octave_value_list& arg, int nout);
+  call_nargin (coder_value_list& output, int nargin, const octave_value_list& arg, int nout);
 
   void
-  call_nargout (int nargout, const octave_value_list& arg, int nout);
+  call_nargout (coder_value_list& output, int nargout, const octave_value_list& arg, int nout);
 
   void
-  call_isargout (int nargout, const octave_value_list& arg, int nout);
+  call_isargout (coder_value_list& output, int nargout, const octave_value_list& arg, int nout);
 
-  void recover_from_excep ();
+  void recover_from_execution_excep ();
 
-  void throw_exec_excep ();
+  void recover_from_execution_and_interrupt_excep ();
 
   void assign_try_id (Ptr expr_id);
 
@@ -1203,14 +1189,11 @@ template <typename array>
     undefined_loop
   };
 
-  enum class unwind_ex
-  {
-    normal_unwind,
-    exception_unwind,
-    continue_unwind,
-    break_unwind,
-    return_unwind
-  };
+  struct unwind_ex {};
+  struct break_unwind:unwind_ex {};
+  struct continue_unwind:unwind_ex {};
+  struct normal_unwind:unwind_ex {};
+  struct return_unwind:unwind_ex {};
 
   struct unwindprotect
   {
@@ -1312,19 +1295,50 @@ template <typename array>
   AssignByRef( X , persistents.X );\
 }
 
+#if OCTAVE_MAJOR_VERSION >=6
+
+#define TRY_CATCH( try_code , catch_code )\
+{\
+  try\
+    {\
+      try_code\
+    }\
+  catch (...)\
+    {\
+      recover_from_execution_excep ();\
+      {catch_code}\
+    }\
+}
+
+#define TRY_CATCH_VAR( try_code , catch_code , expr_id )\
+{\
+  try\
+    {\
+      try_code\
+    }\
+  catch (...)\
+    {\
+      recover_from_execution_excep ();\
+      assign_try_id (expr_id);\
+      {catch_code}\
+    }\
+}
+
+#else
+
 #define TRY_CATCH( try_code , catch_code )\
 {\
   unwindprotect buferrtmp (buffer_error_messages);\
   buffer_error_messages++;\
   try\
-  {\
-    try_code\
-  }\
+    {\
+      try_code\
+    }\
   catch (...)\
-  {\
-    recover_from_excep ();\
-    {catch_code}\
-  }\
+    {\
+      recover_from_execution_excep ();\
+      {catch_code}\
+    }\
 }
 
 #define TRY_CATCH_VAR( try_code , catch_code , expr_id )\
@@ -1332,77 +1346,127 @@ template <typename array>
   unwindprotect buferrtmp (buffer_error_messages);\
   buffer_error_messages++;\
   try\
-  {\
-    try_code\
-  }\
+    {\
+      try_code\
+    }\
   catch (...)\
-  {\
-    recover_from_excep ();\
-    assign_try_id (expr_id);\
-    {catch_code}\
-  }\
+    {\
+      recover_from_execution_excep ();\
+      assign_try_id (expr_id);\
+      {catch_code}\
+    }\
+}
+
+#endif
+
+#define UNWIND_PROTECT(unwind_protect_code , cleanup_code)\
+{\
+  try\
+    {\
+      try\
+        {\
+          {unwind_protect_code}\
+        }\
+      catch (...)\
+        {\
+          throw;\
+        }\
+      throw normal_unwind {};\
+    }\
+  catch (...)\
+    {\
+      try\
+        {\
+          try\
+            {\
+              throw;\
+            }\
+          catch (unwind_ex)\
+            {\
+              throw;\
+            }\
+          catch (...)\
+            {\
+              recover_from_execution_and_interrupt_excep ();\
+              throw;\
+            }\
+        }\
+      catch (...)\
+        {\
+          {cleanup_code}\
+          try\
+            {\
+              throw;\
+            }\
+          catch (return_unwind)\
+            {\
+              goto Return;\
+            }\
+          catch (...)\
+            {\
+              throw;\
+            }\
+        }\
+    }\
 }
 
 #define UNWIND_PROTECT_LOOP(unwind_protect_code , cleanup_code)\
 {\
   try\
-  {\
-    try\
     {\
-      unwind_protect_code\
+      try\
+        {\
+          {unwind_protect_code}\
+        }\
+      catch (...)\
+        {\
+          throw;\
+        }\
+      throw normal_unwind {};\
     }\
-    catch(unwind_ex e)\
+  catch (...)\
     {\
-      throw e;\
+      try\
+        {\
+          try\
+            {\
+              throw;\
+            }\
+          catch (unwind_ex)\
+            {\
+              throw;\
+            }\
+          catch (...)\
+            {\
+              recover_from_execution_and_interrupt_excep ();\
+              throw;\
+            }\
+        }\
+      catch (...)\
+        {\
+          {cleanup_code}\
+          try\
+            {\
+              throw;\
+            }\
+          catch (return_unwind)\
+            {\
+              goto Return;\
+            }\
+          catch (break_unwind)\
+            {\
+              break;\
+            }\
+          catch (continue_unwind)\
+            {\
+              continue;\
+            }\
+          catch (...)\
+            {\
+              throw;\
+            }\
+        }\
     }\
-    catch (...)\
-    {\
-      throw unwind_ex::exception_unwind;\
-    }\
-    throw unwind_ex::normal_unwind;\
-  }\
-  catch(unwind_ex e)\
-  {\
-    recover_from_excep ();\
-    cleanup_code\
-    if (e == unwind_ex::return_unwind)\
-      goto Return;\
-    else if (e == unwind_ex::break_unwind)\
-      break;\
-    else if (e == unwind_ex::continue_unwind)\
-      continue;\
-    else if (e == unwind_ex::exception_unwind)\
-      throw_exec_excep ();\
-  }\
-}
-
-#define UNWIND_PROTECT(unwind_protect_code , cleanup_code)\
-{\
-  try\
-  {\
-    try\
-    {\
-      unwind_protect_code\
-    }\
-    catch(unwind_ex e)\
-    {\
-      throw e;\
-    }\
-    catch (...)\
-    {\
-      throw unwind_ex::exception_unwind;\
-    }\
-    throw unwind_ex::normal_unwind;\
-  }\
-  catch(unwind_ex e)\
-  {\
-    recover_from_excep ();\
-    cleanup_code\
-    if (e == unwind_ex::return_unwind)\
-      goto Return;\
-    else if (e == unwind_ex::exception_unwind)\
-      throw_exec_excep ();\
-  }\
 }
 
 #define WHILE(condition , loop_body)\
@@ -1428,16 +1492,16 @@ template <typename array>
 {\
   int nargin = ovl_length(args);\
   return Symbol(fcn2ov(\
-  [nargin](const octave_value_list& arg, int nout)->void\
+  [nargin](coder_value_list& output, const octave_value_list& arg, int nout)->void\
     {\
-      return call_narginchk (nargin, arg);\
+      return call_narginchk (output, nargin, arg);\
     }));\
 })()
 
 #define NARGOUTCHK Symbol(fcn2ov(\
-  [nargout](const octave_value_list& arg, int nout)->void \
+  [nargout](coder_value_list& output, const octave_value_list& arg, int nout)->void \
   {\
-    return call_nargoutchk (nargout, arg, nout);\
+    return call_nargoutchk (output, nargout, arg, nout);\
   }))
 
 #define NARGIN (\
@@ -1445,22 +1509,22 @@ template <typename array>
   {\
     int nargin = ovl_length(args);\
     return Symbol (fcn2ov ( \
-      [nargin](const octave_value_list& arg, int nout)->void \
+      [nargin](coder_value_list& output, const octave_value_list& arg, int nout)->void \
       {\
-        return call_nargin (nargin, arg, nout);\
+        return call_nargin (output, nargin, arg, nout);\
       }));\
   })()
 
 #define NARGOUT Symbol(fcn2ov(\
-  [nargout](const octave_value_list& arg, int nout)->void \
+  [nargout](coder_value_list& output, const octave_value_list& arg, int nout)->void \
   {\
-    return call_nargout (nargout, arg, nout);\
+    return call_nargout (output, nargout, arg, nout);\
   }))
 
 #define ISARGOUT Symbol(fcn2ov(\
-  [nargout](const octave_value_list& arg, int nout)->void\
+  [nargout](coder_value_list& output, const octave_value_list& arg, int nout)->void\
   {\
-    return call_isargout (nargout, arg, nout);\
+    return call_isargout (output, nargout, arg, nout);\
   }))
 
 #define DEFCODER_DLD(name, interp, args, nargout, doc, fcn_body)        \
@@ -1484,11 +1548,11 @@ template <typename array>
     )header"; return s;
   }
 
-
   const std::string& runtime_source()
   {
     static const std::string s = R"source(
 
+#include "error.h"
 #include "ov-null-mat.h"
 #include "ov-bool.h"
 #include "Matrix.h"
@@ -1502,6 +1566,11 @@ template <typename array>
 #include "ov-fcn-handle.h"
 #include "ov-cs-list.h"
 #include "ov-struct.h"
+#include "quit.h"
+
+#if defined (CODER_BUILDMODE_NOT_SINGLE)
+#include "coder.h"
+#endif
 
 namespace coder
 {
@@ -1543,7 +1612,7 @@ namespace coder
     using iterator = List::iterator;
 
     value_list_pool ()
-    :result (), cache(capacity)
+    : cache(capacity)
     {
       for (size_t i = 0 ; i < capacity; i++)
         for (size_t j = 0 ; j < capacity; j++)
@@ -1588,21 +1657,6 @@ namespace coder
         }
     }
 
-    void push_result (List& list)
-    {
-      free (result);
-      result.splice (result.end (), list);
-    }
-
-    List pop_result ()
-    {
-      List retval;
-
-      retval.splice (retval.end (), result);
-
-      return retval;
-    }
-
     size_t max_capacity ()
     {
       return capacity;
@@ -1611,8 +1665,6 @@ namespace coder
   private:
 
     const size_t capacity = 10;
-
-    std::list<octave_value_list> result;
 
     std::vector<std::list<octave_value_list>> cache;
   };
@@ -1636,16 +1688,6 @@ namespace coder
       return pool ().free (list);
     }
 
-    static value_list_pool::List pop_result ()
-    {
-      return pool ().pop_result ();
-    }
-
-    static void push_result (value_list_pool::List& list)
-    {
-      return pool ().push_result (list);
-    }
-
     static size_t max_capacity ()
     {
       return pool ().max_capacity ();
@@ -1666,10 +1708,100 @@ namespace coder
     }
   }
 
+  class coder_value_list
+  {
+   public:
+    coder_value_list ()
+    {
+    }
+
+    coder_value_list (octave_idx_type n)
+    {
+      m_list = Pool::alloc (n);
+    }
+
+    ~coder_value_list ()
+    {
+      Pool::free (m_list);
+    }
+
+    octave_value_list& back ()
+    {
+      return m_list.back ();
+    }
+
+    octave_value_list & front ()
+    {
+      return m_list.front ();
+    }
+
+    void clear ()
+    {
+      Pool::free (m_list);
+    }
+
+    octave_value& operator () (octave_idx_type i)
+    {
+      return back () (i);
+    }
+
+    void append (const octave_value& val)
+    {
+      auto new_list = Pool::alloc (1);
+      new_list.back ()(0) = val;
+      m_list.splice (m_list.end () , new_list);
+    }
+
+    void append (coder_value_list&& other)
+    {
+      m_list.splice (m_list.end (), other.m_list);
+    }
+
+    void append (const octave_value_list& val)
+    {
+      auto new_list = Pool::alloc (0);
+      new_list.back () = val;
+      m_list.splice (m_list.end (), new_list);
+    }
+
+    void append_first (coder_value_list& other)
+    {
+      m_list.splice (m_list.end (), other.m_list, other.m_list.begin ());
+    }
+
+    bool empty ()const
+    {
+      return m_list.empty ();
+    }
+
+    size_t size ()const
+    {
+      return m_list.size ();
+    }
+
+    const std::list<octave_value_list>& list () const
+    {
+      return m_list;
+    }
+
+    operator std::list<octave_value_list>& ()
+    {
+      return m_list;
+    }
+
+    operator const std::list<octave_value_list>& () const
+    {
+      return m_list;
+    }
+
+  private:
+    std::list<octave_value_list> m_list;
+  };
+
   class coder_function_base
   {
   public:
-      virtual void call (int, const octave_value_list&) = 0;
+      virtual void call (coder_value_list& , int, const octave_value_list&) = 0;
   };
 
   class
@@ -1714,10 +1846,19 @@ namespace coder
       return retval;
     }
 
+#if OCTAVE_MAJOR_VERSION >= 6
+    octave_value_list
+    execute(octave::tree_evaluator& tw, int nargout = 0,
+      const octave_value_list& args = octave_value_list ())
+    {
+      return call (tw, nargout, args);
+    }
+#endif
+
   private:
 
-      fcn f;
-      DECLARE_OV_TYPEID_FUNCTIONS_AND_DATA
+    fcn f;
+    DECLARE_OV_TYPEID_FUNCTIONS_AND_DATA
   };
   DEFINE_OV_TYPEID_FUNCTIONS_AND_DATA (coder_function,
                                        "coder_function",
@@ -1768,10 +1909,19 @@ namespace coder
       return retval;
     }
 
+#if OCTAVE_MAJOR_VERSION >= 6
+    octave_value_list
+    execute(octave::tree_evaluator& tw, int nargout = 0,
+      const octave_value_list& args = octave_value_list ())
+    {
+      return call (tw, nargout, args);
+    }
+#endif
+
   private:
 
-      meth m;
-      DECLARE_OV_TYPEID_FUNCTIONS_AND_DATA
+    meth m;
+    DECLARE_OV_TYPEID_FUNCTIONS_AND_DATA
   };
 
   DEFINE_OV_TYPEID_FUNCTIONS_AND_DATA (coder_method,
@@ -1783,10 +1933,9 @@ namespace coder
   {
   public:
 
-    typedef void (*fcn) (const octave_value_list&, int);
+    typedef void (*fcn) (coder_value_list&, const octave_value_list&, int);
 
     coder_stateless_function():f(){}
-
 
     coder_stateless_function(fcn fun):
     f(fun)
@@ -1804,23 +1953,21 @@ namespace coder
     }
 
     void
-    call (int nargout = 0,
+    call (coder_value_list& output, int nargout = 0,
       const octave_value_list& args = octave_value_list ())
     {
-      f(args, nargout);
+      f(output, args, nargout);
     }
 
     octave_value_list
     call(octave::tree_evaluator& tw, int nargout = 0,
       const octave_value_list& args = octave_value_list ())
     {
-      f(args, nargout);
+      coder_value_list result;
 
-      auto result =  Pool::pop_result ();
+      f(result, args, nargout);
 
       octave_value_list retval = result.back ();
-
-      Pool::free (result);
 
       retval.make_storable_values ();
 
@@ -1830,10 +1977,19 @@ namespace coder
       return retval;
     }
 
+#if OCTAVE_MAJOR_VERSION >= 6
+    octave_value_list
+    execute(octave::tree_evaluator& tw, int nargout = 0,
+      const octave_value_list& args = octave_value_list ())
+    {
+      return call (tw, nargout, args);
+    }
+#endif
+
   private:
 
-      fcn f;
-      DECLARE_OV_TYPEID_FUNCTIONS_AND_DATA
+    fcn f;
+    DECLARE_OV_TYPEID_FUNCTIONS_AND_DATA
   };
 
   DEFINE_OV_TYPEID_FUNCTIONS_AND_DATA (coder_stateless_function,
@@ -1865,23 +2021,21 @@ namespace coder
     }
 
     void
-    call (int nargout = 0,
+    call (coder_value_list& output, int nargout = 0,
       const octave_value_list& args = octave_value_list ())
     {
-      s(args, nargout);
+      s(output, args, nargout);
     }
 
     octave_value_list
     call(octave::tree_evaluator& tw, int nargout = 0,
       const octave_value_list& args = octave_value_list ())
     {
-      s(args, nargout);
+      coder_value_list result;
 
-      auto result =  Pool::pop_result ();
+      s(result, args, nargout);
 
       octave_value_list retval = result.back ();
-
-      Pool::free (result);
 
       retval.make_storable_values ();
 
@@ -1891,10 +2045,19 @@ namespace coder
       return retval;
     }
 
+#if OCTAVE_MAJOR_VERSION >= 6
+    octave_value_list
+    execute(octave::tree_evaluator& tw, int nargout = 0,
+      const octave_value_list& args = octave_value_list ())
+    {
+      return call (tw, nargout, args);
+    }
+#endif
+
   private:
 
-      std::function<void(const octave_value_list&,int)> s;
-      DECLARE_OV_TYPEID_FUNCTIONS_AND_DATA
+    std::function<void(coder_value_list&, const octave_value_list&,int)> s;
+    DECLARE_OV_TYPEID_FUNCTIONS_AND_DATA
   };
 
   DEFINE_OV_TYPEID_FUNCTIONS_AND_DATA (coder_stateful_function,
@@ -1911,14 +2074,12 @@ namespace coder
     return new coder_method(m);
   }
 
-  typedef void (*stateless_function) (const octave_value_list&, int);
-
   octave_base_value* fcn2ov(stateless_function f)
   {
     return new coder_stateless_function(f);
   }
 
-  octave_base_value* stdfcntoov (std::function<void(const octave_value_list&,int)> fcn)
+  octave_base_value* stdfcntoov (std::function<void(coder_value_list&, const octave_value_list&,int)> fcn)
   {
     return new coder_stateful_function(fcn);
   }
@@ -1948,9 +2109,9 @@ namespace coder
 
   void
   coder_lvalue::assign (int op,
-                            const octave_value& rhs, void* idx)
+                            const octave_value& rhs, coder_value_list& idx)
   {
-    std::list<octave_value_list>& m_idx = *static_cast<std::list<octave_value_list>*>(idx);
+    coder_value_list& m_idx = idx;
 
     if (! is_black_hole ())
       {
@@ -1959,7 +2120,7 @@ namespace coder
         if (m_idx.empty ())
           tmp.assign ((octave_value::assign_op)op, rhs);
         else
-          tmp.assign ((octave_value::assign_op)op, m_type, m_idx, rhs);
+          tmp.assign ((octave_value::assign_op)op, m_type, m_idx.list (), rhs);
 
         *m_sym = tmp.internal_rep ();
 
@@ -1969,39 +2130,43 @@ namespace coder
 
   void
   coder_lvalue::set_index (const std::string& t,
-                                 void* i, void* idx)
+                                 coder_value_list& i, coder_value_list& idx)
   {
-    std::list<octave_value_list>& m_i = *static_cast<std::list<octave_value_list>*>(i);
+    coder_value_list& m_i = i;
 
-    std::list<octave_value_list>& m_idx = *static_cast<std::list<octave_value_list>*>(idx);
+    coder_value_list& m_idx = idx;
 
     if (! m_idx.empty ())
-      error ("invalid index expression in assignment");
+      {
+        error ("invalid index expression in assignment");
+      }
 
     m_type = t;
 
-    Pool::free (m_idx);
+    m_idx.clear ();
 
-    m_idx.splice (m_idx.end (), m_i);
+    m_idx.append (std::move (m_i));
   }
 
-  void coder_lvalue::clear_index (void* idx)
+  void coder_lvalue::clear_index (coder_value_list& idx)
   {
-    std::list<octave_value_list>& m_idx = *static_cast<std::list<octave_value_list>*>(idx);
+    coder_value_list& m_idx = idx;
 
-    m_type = ""; Pool::free (m_idx);
+    m_type = "";
+
+    m_idx.clear ();
   }
 
   bool
-  coder_lvalue::index_is_empty (void* idx) const
+  coder_lvalue::index_is_empty (coder_value_list& idx) const
   {
-    std::list<octave_value_list>& m_idx = *static_cast<std::list<octave_value_list>*>(idx);
+    coder_value_list& m_idx = idx;
 
     bool retval = false;
 
     if (m_idx.size () == 1)
       {
-        octave_value_list tmp = m_idx.front ();
+        const octave_value_list& tmp = m_idx.front ();
 
         retval = (tmp.length () == 1 && tmp(0).isempty ());
       }
@@ -2010,9 +2175,9 @@ namespace coder
   }
 
   void
-  coder_lvalue::do_unary_op (int op, void* idx)
+  coder_lvalue::do_unary_op (int op, coder_value_list& idx)
   {
-    std::list<octave_value_list>& m_idx = *static_cast<std::list<octave_value_list>*>(idx);
+    coder_value_list& m_idx = idx;
 
     if (! is_black_hole ())
       {
@@ -2030,9 +2195,9 @@ namespace coder
   }
 
   coder_value
-  coder_lvalue::value (void* idx) const
+  coder_lvalue::value (coder_value_list& idx) const
   {
-    std::list<octave_value_list>& m_idx = *static_cast<std::list<octave_value_list>*>(idx);
+    coder_value_list& m_idx = idx;
 
     octave_value retval;
 
@@ -2059,7 +2224,6 @@ namespace coder
       }
 
     return retval;
-
   }
 
   coder_value
@@ -2067,21 +2231,49 @@ namespace coder
   {
     octave_value retval;
 
+    octave_value expr_result;
+
     if (! indexed_object)
       error ("invalid use of end");
 
     if (! indexed_object->is_defined())
       err_invalid_inquiry_subscript ();
 
+    const coder_value_list& index_list = *idx_list;
+
+    const std::string& index_type = *static_cast <const std::string*>(idx_type);
+
+    if (index_list.empty ())
+      {
+        expr_result = octave_value(indexed_object, true);
+      }
+     else
+      {
+        try
+          {
+            octave_value_list tmp
+              = indexed_object->subsref (index_type.substr (0, index_list.size()), index_list, 1);
+
+            expr_result = tmp.length () ? tmp(0) : octave_value ();
+
+            if (expr_result.is_cs_list ())
+              err_indexed_cs_list ();
+          }
+        catch (octave::index_exception&)
+          {
+            error ("error evaluating partial expression for END");
+          }
+      }
+
     if (indexed_object->isobject ())
       {
-        octave_value_list args;
+        coder_value_list args(3);
 
         args(2) = num_indices;
 
         args(1) = index_position + 1;
 
-        args(0) = octave_value(indexed_object, true);
+        args(0) = expr_result;
 
         std::string class_name = indexed_object->class_name ();
 
@@ -2091,7 +2283,7 @@ namespace coder
 
         if (meth.is_defined ())
           {
-            auto result = octave::feval (meth.function_value (), args, 1);
+            auto result = octave::feval (meth.function_value (), args.back (), 1);
 
             if(! result.empty ())
               {
@@ -2125,9 +2317,9 @@ namespace coder
       }
 
     if (index_position < ndims)
-      retval = dv(index_position);
+      retval = octave_value(dv(index_position));
     else
-      retval = 1;
+      retval = octave_value (1.0);
 
     return (retval);
   }
@@ -2139,13 +2331,9 @@ namespace coder
   }
 
   void
-  Expression::evaluate_n( int nargout, const Endindex& endkey, bool short_circuit)
+  Expression::evaluate_n(coder_value_list& output, int nargout, const Endindex& endkey, bool short_circuit)
   {
-    auto retval = Pool::alloc (1);
-
-    retval.back ()(0) = octave_value(evaluate(nargout,endkey,short_circuit),false);
-
-    Pool::push_result (retval);
+    output.append (octave_value(evaluate(nargout,endkey,short_circuit),false));
   }
 
   Expression::operator bool ()
@@ -2301,19 +2489,29 @@ namespace coder
         }
       case file_type::classdef:
         {
-          cdef_manager& cdm = octave::interpreter::the_interpreter ()->get_cdef_manager ();
-
+          auto& cdm = octave::interpreter::the_interpreter ()->get_cdef_manager ();
+#if OCTAVE_MAJOR_VERSION >= 6
+          octave_value klass_meth;
+#else
           octave_function* klass_meth = nullptr;
-
-          cdef_class klass = cdm.find_class (fcn_name, false, true);
+#endif
+          auto klass = cdm.find_class (fcn_name, false, true);
 
           if(klass.ok ())
             klass_meth =  klass.get_constructor_function();
           else
             error("cannot find class %s in path %s", fcn_name.c_str (), path.c_str ());
+#if OCTAVE_MAJOR_VERSION >= 6
+          if (klass_meth.is_defined ())
+            {
+              value = klass_meth.internal_rep ();
 
+              value->grab ();
+            }
+#else
           if (klass_meth)
             value = klass_meth;
+#endif
           else
             error("cannot find class %s in path %s", fcn_name.c_str (), path.c_str ());
 
@@ -2321,14 +2519,27 @@ namespace coder
         }
       case file_type::package:
         {
-          cdef_manager& cdm = octave::interpreter::the_interpreter ()->get_cdef_manager ();
+          auto& cdm = octave::interpreter::the_interpreter ()->get_cdef_manager ();
 
-          cdef_package pack = cdm.find_package (fcn_name, false, true);
+          auto pack = cdm.find_package (fcn_name, false, true);
 
+#if OCTAVE_MAJOR_VERSION >= 6
+          octave_value pack_sym = cdm.find_package_symbol (fcn_name);
+#else
           octave_function* pack_sym = cdm.find_package_symbol (fcn_name);
+#endif
 
+#if OCTAVE_MAJOR_VERSION >= 6
+          if (pack_sym.is_defined ())
+            {
+              value = pack_sym.internal_rep ();
+
+              value->grab ();
+            }
+#else
           if (pack_sym)
             value = pack_sym;
+#endif
           else
             error("cannot find package %s in path %s", fcn_name.c_str (), path.c_str ());
 
@@ -2338,7 +2549,7 @@ namespace coder
   }
 
   coder_value
-  Symbol::evaluate( int nargout,  const Endindex& endkey, bool short_circuit)
+  Symbol::evaluate(int nargout, const Endindex& endkey, bool short_circuit)
   {
     octave_base_value* value = get_value();
 
@@ -2356,24 +2567,20 @@ namespace coder
 
             if (generated_fcn)
               {
-                auto first_args = Pool::alloc();
+                coder_value_list result;
 
-                generated_fcn->call (nargout, first_args.back () );
+                coder_value_list first_args (0);
 
-                Pool::free (first_args);
-
-                auto result = Pool::pop_result();
+                generated_fcn->call (result, nargout, first_args.back () );
 
                 octave_value_list& retlist = result.back ();
 
                 if(retlist.empty ())
                   {
-                    retval =  coder_value (octave_value ());
+                    retval = coder_value (octave_value ());
                   }
                 else
-                  retval =  coder_value (retlist(0));
-
-                Pool::free (result);
+                  retval = coder_value (retlist(0));
 
                 return retval;
               }
@@ -2381,18 +2588,16 @@ namespace coder
               {
                 octave::tree_evaluator& ev = octave::interpreter::the_interpreter () -> get_evaluator ();
 
-                auto first_args = Pool::alloc();
+                coder_value_list first_args {0};
 
                 octave_value_list retlist =  fcn->call (ev, nargout, first_args.back ());
 
-                Pool::free (first_args);
-
                 if(retlist.empty ())
                   {
-                    retval =  coder_value (octave_value ());
+                    retval = coder_value (octave_value ());
                   }
                 else
-                  retval =  coder_value (retlist(0));
+                  retval = coder_value (retlist(0));
 
                 return retval;
               }
@@ -2409,7 +2614,7 @@ namespace coder
   }
 
   void
-  Symbol::evaluate_n( int nargout,  const Endindex& endkey, bool short_circuit)
+  Symbol::evaluate_n (coder_value_list& output, int nargout, const Endindex& endkey, bool short_circuit)
   {
     octave_base_value* value = get_value();
 
@@ -2427,34 +2632,22 @@ namespace coder
 
             if (generated_fcn)
               {
-                auto first_args = Pool::alloc();
+                coder_value_list first_args (0);
 
-                generated_fcn->call (nargout, first_args.back ());
-
-                Pool::free (first_args);
+                generated_fcn->call (output, nargout, first_args.back ());
               }
             else
               {
                 octave::tree_evaluator& ev = octave::interpreter::the_interpreter () -> get_evaluator ();
 
-                auto args = Pool::alloc ();
+                coder_value_list args (0);
 
-                auto result = Pool::alloc ();
-
-                result.back () = fcn->call (ev, nargout, args.back ());
-
-                Pool::free (args);
-
-                Pool::push_result (result);
+                output.append (fcn->call (ev, nargout, args.back ()));
               }
           }
         else
           {
-            auto result = Pool::alloc (1);
-
-            result.back ()(0) = octave_value(value, true);
-
-            Pool::push_result (result);
+            output.append (octave_value(value, true));
           }
       }
     else
@@ -2464,7 +2657,7 @@ namespace coder
   }
 
   coder_lvalue
-  Symbol::lvalue(void* idx)
+  Symbol::lvalue(coder_value_list& idx)
   {
     if (reference != this)
       {
@@ -2480,12 +2673,12 @@ namespace coder
   }
 
   void
-  Symbol::call (int nargout, const octave_value_list& args)
+  Symbol::call (coder_value_list& output, int nargout, const octave_value_list& args)
   {
     coder_function_base* fcn = dynamic_cast<coder_function_base*>(value);
 
     if (fcn)
-      fcn->call (nargout, args);
+      fcn->call (output, nargout, args);
   }
 
   bool
@@ -2504,21 +2697,16 @@ namespace coder
     return val && val->is_function ();
   }
 
-  void
-  convert_to_const_vector (const ArgList& arg_list,
-                                         octave_base_value* object, Endindex endkey)
+  coder_value_list
+  convert_to_const_vector (const Ptr_list& arg_list, Endindex endkey)
   {
-    const bool stash_object = (arg_list.has_magic_end()
-                         && ! (object->is_function ()
-                               || object->is_function_handle ()));
-
     const int len = arg_list.size ();
 
-    std::list<octave_value_list> result_list = Pool::alloc ( len);
+    coder_value_list result_list (len);
 
     octave_value_list& args  = result_list.back ();
 
-    auto p = arg_list.list.begin ();
+    auto p = arg_list.begin ();
 
     int j = 0;
 
@@ -2526,15 +2714,15 @@ namespace coder
 
     bool contains_cs_list = false;
 
+    endkey.num_indices = len;
+
     for (int k = 0; k < len; k++)
       {
-        const Endindex& endk = stash_object ?
-          Endindex{object, k, len} :
-          endkey;
+        endkey.index_position = k;
 
         auto& elt = *p++;
 
-        octave_value tmp ( elt->evaluate(1, endk ,  false), false);
+        octave_value tmp (elt->evaluate(1, endkey, false), false);
 
         if (tmp.is_defined ())
           {
@@ -2546,20 +2734,20 @@ namespace coder
                   continue;
                 else if (n  == 1)
                   {
-                    args(j++) = tmp.list_value ()(0);
+                    result_list(j++) = tmp.list_value ()(0);
                   }
                 else
                   {
                     contains_cs_list = true;
 
-                    args(j++) = tmp;
+                    result_list(j++) = tmp;
                   }
 
                 nel+=n;
               }
             else
               {
-                args(j++) = tmp;
+                result_list(j++) = tmp;
 
                 nel++;
               }
@@ -2568,7 +2756,7 @@ namespace coder
 
     if (nel != len || contains_cs_list)
       {
-        auto new_result = Pool::alloc (nel);
+        coder_value_list new_result (nel);
 
         octave_idx_type s = 0;
 
@@ -2583,59 +2771,51 @@ namespace coder
                 const octave_idx_type ovlen = ovl.length ();
 
                 for (octave_idx_type m = 0; m < ovlen; m++)
-                  new_result.back () (s++) = ovl.xelem (m);
+                  new_result (s++) = ovl.xelem (m);
               }
             else
               {
-                new_result.back ()(s++) = val;
+                new_result (s++) = val;
               }
           }
 
         assert (s == nel);
 
-        Pool::free(result_list);
-
-        Pool::push_result(new_result);
-
-        return;
+        return new_result;
       }
 
-    Pool::push_result(result_list);
+    return result_list;
   }
 
-  void
-  make_value_list (const ArgList& m_args,
-                   const octave_value &object,
+  coder_value_list
+  make_value_list (const Ptr_list& m_args,
                    const Endindex& endkey=Endindex())
-
   {
     if (m_args.size() > 0)
       {
-        return convert_to_const_vector (m_args, object.internal_rep () ,endkey);
+        return convert_to_const_vector (m_args ,endkey);
       }
 
-    auto result = Pool::alloc();
-
-    return Pool::push_result(result);
+    return coder_value_list (0);
   }
 
-  std::string
-  get_struct_index (const ArgList& arg)
+  octave_value
+  get_struct_index (const Ptr_list& arg, const Endindex& endkey)
   {
-    coder_value val ( (*arg.list.begin())->evaluate (1));
+    coder_value val ( (*arg.begin())->evaluate (1, endkey));
 
     if (! val.val->is_string ())
       error ("dynamic structure field names must be strings");
 
-    return val.val->string_value ();
+    return octave_value (val.val, false);
   }
 
   coder_value
   Index::evaluate ( int nargout, const Endindex& endkey, bool short_circuit)
   {
-    evaluate_n(nargout, endkey, short_circuit);
+    coder_value_list result;
 
-    auto result = Pool::pop_result ();
+    evaluate_n (result, nargout, endkey, short_circuit);
 
     octave_value_list& vlist = result.back ();
 
@@ -2651,15 +2831,13 @@ namespace coder
         retval = coder_value(vlist(0));
       }
 
-    Pool::free (result);
-
     return retval;
   }
 
   void
-  Index::evaluate_n( int nargout, const Endindex& endkey, bool short_circuit)
+  Index::evaluate_n(coder_value_list& output, int nargout, const Endindex& endkey, bool short_circuit)
   {
-    std::list<octave_value_list> retval;
+    coder_value_list& retval = output;
 
     const std::string& type = idx_type;
 
@@ -2677,6 +2855,8 @@ namespace coder
 
     auto& expr = base;
 
+    coder_value_list idx ;
+
     if (expr->is_Symbol () && type[beg] == '(')
       {
         Symbol& id = static_cast<Symbol&>(expr.get());
@@ -2691,7 +2871,7 @@ namespace coder
 
             if (fcn)
               {
-                std::list<octave_value_list> first_args;
+                coder_value_list first_args;
 
                 coder_function_base* generated_fcn = dynamic_cast<coder_function_base*> (fcn);
 
@@ -2699,47 +2879,35 @@ namespace coder
                   {
                     if (p_args->size() > 0)
                       {
-                          convert_to_const_vector( *p_args, val, endkey) ;
+                        const Endindex &endindex = val->is_function_handle ()
+                          ? Endindex{val, &type, &idx, 0, n}
+                          : endkey;
 
-                          first_args = Pool::pop_result();
+                        first_args.append (convert_to_const_vector( *p_args, endindex));
                       }
                     else
                       {
-                        first_args = Pool::alloc();
+                        first_args.append (coder_value_list(0));
                       }
 
-                    generated_fcn->call (nargout, first_args.back () );
-
-                    Pool::free (first_args);
-
-                    Pool::free (retval);
-
-                    retval = Pool::pop_result();
+                    generated_fcn->call (retval, nargout, first_args.back () );
                   }
                 else if (! val->is_function_handle ())
                   {
                     if (p_args->size() > 0)
                       {
-                          convert_to_const_vector( *p_args, val, endkey) ;
-
-                          first_args = Pool::pop_result();
+                          first_args.append (convert_to_const_vector( *p_args, endkey));
                       }
                     else
                       {
-                        first_args = Pool::alloc();
+                        first_args.append (coder_value_list (0));
                       }
 
                     try
                       {
                         octave::tree_evaluator& ev = octave::interpreter::the_interpreter () -> get_evaluator ();
 
-                        Pool::free(retval);
-
-                        retval = Pool::alloc();
-
-                        retval.back () =  fcn->call (ev, nargout, first_args.back ());
-
-                        Pool::free(first_args);
+                        retval.append (fcn->call (ev, nargout, first_args.back ()));
                       }
                     catch (octave::index_exception& e)
                       {
@@ -2754,12 +2922,10 @@ namespace coder
                     if (retval.back ().length () == 0)
                       error ("indexing undefined value");
                     else
-                      base_expr_val = retval.back ()(0);
+                      base_expr_val = retval(0);
                   }
                 else
                   {
-                    Pool::push_result(retval);
-
                     return;
                   }
               }
@@ -2774,17 +2940,13 @@ namespace coder
                 || (base_expr_val.is_classdef_meta ()
                   && ! base_expr_val.is_package ()));
 
-    std::list<octave_value_list> idx ;
-
     octave_value partial_expr_val = base_expr_val;
 
     for (int i = beg; i < n; i++)
       {
         if (i > beg)
           {
-            auto &al = *p_args;
-
-            if (! indexing_object || (al.has_magic_end ()))
+            if (! indexing_object)
               {
                 try
                   {
@@ -2795,30 +2957,25 @@ namespace coder
                     partial_expr_val
                       = tmp_list.length () ? tmp_list(0) : octave_value ();
 
-                    if (! indexing_object)
+                    base_expr_val = partial_expr_val;
+
+                    if (partial_expr_val.is_cs_list ())
+                      err_indexed_cs_list ();
+
+                    retval.clear ();
+
+                    retval.append (partial_expr_val);
+
+                    beg = i;
+
+                    idx.clear ();
+
+                    if (partial_expr_val.isobject ()
+                      || partial_expr_val.isjava ()
+                      || (partial_expr_val.is_classdef_meta ()
+                        && ! partial_expr_val.is_package ()))
                       {
-                        base_expr_val = partial_expr_val;
-
-                        if (partial_expr_val.is_cs_list ())
-                          err_indexed_cs_list ();
-
-                        Pool::free (retval);
-
-                        retval = Pool::alloc(1);
-
-                        retval.front()(0) = partial_expr_val;
-
-                        beg = i;
-
-                        Pool::free(idx);
-
-                        if (partial_expr_val.isobject ()
-                          || partial_expr_val.isjava ()
-                          || (partial_expr_val.is_classdef_meta ()
-                            && ! partial_expr_val.is_package ()))
-                          {
-                            indexing_object = true;
-                          }
+                        indexing_object = true;
                       }
                   }
                 catch (octave::index_exception& e)
@@ -2828,26 +2985,22 @@ namespace coder
               }
           }
 
+        Endindex endindex {partial_expr_val.internal_rep(), &type, &idx, i, n};
+
         switch (type[i])
           {
           case '(':
           case '{':
             {
-              make_value_list (*p_args, partial_expr_val,endkey);
+              coder_value_list result = make_value_list (*p_args, endindex);
 
-              auto result = Pool::pop_result ();
-
-              idx.splice (idx.end () , result);
+              idx.append (std::move(result));
             }
             break;
 
           case '.':
             {
-              auto struct_idx = Pool::alloc (1);
-
-              struct_idx.back ()(0) = get_struct_index (*p_args);
-
-              idx.splice (idx.end () , struct_idx);
+              idx.append (get_struct_index (*p_args, endindex));
             }
             break;
 
@@ -2865,16 +3018,14 @@ namespace coder
           {
             try
               {
-                Pool::free (retval);
+                retval.clear ();
 
-                retval = Pool::alloc();
-
-                retval.back () = base_expr_val.subsref (type.substr (beg, n-beg),
-                        idx, nargout);
+                retval.append (base_expr_val.subsref (type.substr (beg, n-beg),
+                        idx, nargout));
 
                 beg = n;
 
-                Pool::free (idx);
+                idx.clear ();
               }
             catch (octave::index_exception& e)
               {
@@ -2889,11 +3040,18 @@ namespace coder
               {
                 try
                   {
-                    Pool::free (retval);
+                    retval.clear ();
 
-                    retval = Pool::alloc ();
+                    if (idx.size () != 1)
+                      error ("unexpected extra index at end of expression");
+
+                    if (type[beg] != '(')
+                      error ("invalid index type '%c' for function call",
+                             type[beg]);
+
                     octave::tree_evaluator& ev = octave::interpreter::the_interpreter () -> get_evaluator ();
-                    retval.back () = fcn->call (ev, nargout, idx);
+
+                    retval.append (fcn->call (ev, nargout, idx.front ()));
                   }
                 catch (octave::index_exception& e)
                   {
@@ -2911,7 +3069,7 @@ namespace coder
 
         if (fcn)
           {
-            auto final_args = Pool::alloc ();
+            coder_value_list final_args (0);
 
             if (! idx.empty ())
               {
@@ -2922,32 +3080,30 @@ namespace coder
                   error ("invalid index type '%c' for function call",
                          type[beg]);
 
-                Pool::free (final_args);
+                final_args.clear ();
 
-                final_args.splice(final_args.end(), idx, idx.begin ());
+                final_args.append_first(idx);
               }
 
             octave::tree_evaluator& ev = octave::interpreter::the_interpreter () -> get_evaluator ();
 
-            Pool::free (retval);
-            retval = Pool::alloc ();
-            retval.back () = fcn->call (ev, nargout, final_args);
+            retval.clear ();
+
+            retval.append (fcn->call (ev, nargout, final_args.back ()));
           }
       }
-
-    Pool::free (idx);
-
-    Pool::push_result (retval);
   }
 
   coder_lvalue
-  Index::lvalue (void* in_idx)
+  Index::lvalue (coder_value_list& in_idx)
   {
-    std::list<octave_value_list>& arg = *static_cast<std::list<octave_value_list>*>(in_idx);
+    Pool::bitidx ().clear ();
+
+    coder_value_list& arg = in_idx;
 
     coder_lvalue retval;
 
-    std::list<octave_value_list> idx;
+    coder_value_list idx;
 
     std::string tmp_type;
 
@@ -2963,19 +3119,19 @@ namespace coder
 
     assert(m_expr->is_Symbol());
 
-    std::list<octave_value_list> arg1;
+    coder_value_list arg1;
 
-    retval = m_expr->lvalue (&arg1);
+    retval = m_expr->lvalue (arg1);
 
-    octave_value tmp = octave_value(retval.value (&arg1), false);
+    octave_value base_obj = octave_value(retval.value (arg1), false);
 
-    Pool::free (arg1);
+    octave_value tmp = base_obj;
 
     octave_idx_type tmpi = 0;
 
-    std::list<octave_value_list> tmpidx;
+    coder_value_list tmpidx;
 
-    std::list<octave_value_list> resultidx;
+    coder_value_list resultidx;
 
     for (int i = 0; i < n; i++)
       {
@@ -2995,27 +3151,27 @@ namespace coder
 
             for (auto b : Pool::bitidx ())
               if (b)
-                resultidx.splice (resultidx.end (), idx, idx.begin ());
+                resultidx.append_first (idx);
               else
-                resultidx.splice (resultidx.end (), tmpidx, tmpidx.begin ());
+                resultidx.append_first (tmpidx);
 
             Pool::bitidx ().clear ();
           }
+
+        Endindex endindex {base_obj.internal_rep(), &m_type, &resultidx, i, n};
 
         switch (m_type[i])
           {
           case '(':
             {
-              make_value_list (*p_args, tmp);
-
-              auto tidx = Pool::pop_result ();
+              auto tidx = make_value_list (*p_args, endindex);
 
               if (i < n - 1)
                 {
                   if (m_type[i+1] != '.')
                     error ("() must be followed by . or close the index chain");
 
-                  tmpidx.splice (tmpidx.end () , tidx);
+                  tmpidx.append (std::move (tidx));
 
                   tmpi = i+1;
 
@@ -3023,19 +3179,16 @@ namespace coder
                 }
               else
                 {
-                  idx.splice (idx.end () , tidx);
+                  idx.append (std::move (tidx));
 
                   Pool::bitidx ().push_back (1);
                 }
-
             }
             break;
 
           case '{':
             {
-              make_value_list (*p_args, tmp);
-
-              auto tidx = Pool::pop_result ();
+              auto tidx = make_value_list (*p_args, endindex);
 
               if (tmp.is_undefined ())
                 {
@@ -3049,10 +3202,12 @@ namespace coder
                 {
                   tmp = Cell ();
                 }
-
+#if OCTAVE_MAJOR_VERSION >= 6
+              retval.numel (tmp.xnumel (tidx.back ()));
+#else
               retval.numel (tmp.numel (tidx.back ()));
-
-              tmpidx.splice (tmpidx.end () , tidx);
+#endif
+              tmpidx.append (std::move (tidx));
 
               tmpi = i;
 
@@ -3062,11 +3217,7 @@ namespace coder
 
           case '.':
             {
-              octave_value tidx = get_struct_index (*p_args);
-
-              auto tidxlist = Pool::alloc(1);
-
-              tidxlist.back ()(0) = get_struct_index (*p_args);
+              auto tidxlist = get_struct_index (*p_args, endindex);
 
               bool autoconv = (tmp.is_zero_by_zero ()
                                && (tmp.is_matrix_type () || tmp.is_string ()
@@ -3085,12 +3236,14 @@ namespace coder
                     }
                   else if (autoconv)
                     tmp = octave_map ();
-
+#if OCTAVE_MAJOR_VERSION >= 6
+                  retval.numel (tmp.xnumel (pidx));
+#else
                   retval.numel (tmp.numel (pidx));
-
+#endif
                   tmpi = i-1;
 
-                  tmpidx.splice (tmpidx.end (), tidxlist);
+                  tmpidx.append (tidxlist);
 
                   Pool::bitidx ().push_back (0);
                 }
@@ -3102,17 +3255,20 @@ namespace coder
 
                       tmp = octave_value ();
 
-                      idx.splice (idx.end (), tidxlist);
+                      idx.append (tidxlist);
 
                       Pool::bitidx ().push_back (1);
                     }
                   else
                     {
+#if OCTAVE_MAJOR_VERSION >= 6
+                      retval.numel (tmp.xnumel (octave_value_list ()));
+#else
                       retval.numel (tmp.numel (octave_value_list ()));
-
+#endif
                       tmpi = i;
 
-                      tmpidx.splice (tmpidx.end (), tidxlist);
+                      tmpidx.append (tidxlist);
 
                       Pool::bitidx ().push_back (0);
                     }
@@ -3131,15 +3287,16 @@ namespace coder
 
         p_args++;
       }
+
     for (auto b : Pool::bitidx ())
       if (b)
-        resultidx.splice (resultidx.end (), idx, idx.begin ());
+        resultidx.append_first (idx);
       else
-        resultidx.splice (resultidx.end (), tmpidx, tmpidx.begin ());
+        resultidx.append_first (tmpidx);
 
     Pool::bitidx ().clear ();
 
-    retval.set_index (m_type, &resultidx, &arg);
+    retval.set_index (m_type, resultidx, arg);
 
     return retval;
   }
@@ -3155,21 +3312,25 @@ namespace coder
   {
     return (octave_null_str::instance);
   }
+
   coder_value
   NullSqStr::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
   {
     return octave_null_sq_str::instance;;
   }
+
   coder_value
   string_literal_sq::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
   {
     return (octave_value(str));
   }
+
   coder_value
   string_literal_dq::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
   {
     return (octave_value(str,'"'));
   }
+
   coder_value double_literal::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
   {
     return (octave_value(double(val)));
@@ -3208,15 +3369,13 @@ namespace coder
   coder_value
   pre_expr(Ptr a, octave_value::unary_op op)
   {
-    std::list<octave_value_list> lst;
+    coder_value_list lst;
 
-    coder_lvalue op_ref = a->lvalue (&lst);
+    coder_lvalue op_ref = a->lvalue (lst);
 
-    op_ref.do_unary_op (op, &lst);
+    op_ref.do_unary_op (op, lst);
 
-    coder_value retval = op_ref.value (&lst);
-
-    Pool::free (lst);
+    coder_value retval = op_ref.value (lst);
 
     return retval;
   }
@@ -3224,17 +3383,15 @@ namespace coder
   coder_value
   post_expr(Ptr a, octave_value::unary_op op)
   {
-    std::list<octave_value_list> lst;
+    coder_value_list lst;
 
-    coder_lvalue op_ref = a->lvalue (&lst);
+    coder_lvalue op_ref = a->lvalue (lst);
 
-    coder_value val = op_ref.value (&lst);
+    coder_value val = op_ref.value (lst);
 
-    op_ref.do_unary_op (op, &lst);
+    op_ref.do_unary_op (op, lst);
 
-    Pool::free (lst);
-
-    return val ;
+    return val;
   }
 
   coder_value
@@ -3250,13 +3407,13 @@ namespace coder
   coder_value
   assign_expr(Ptr lhs, Ptr rhs, const Endindex& endkey, octave_value::assign_op op)
   {
-    coder_value val ;
+    coder_value val;
 
     try
       {
-        std::list<octave_value_list> arg;
+        coder_value_list arg;
 
-        coder_lvalue ult = lhs->lvalue (&arg);
+        coder_lvalue ult = lhs->lvalue (arg);
 
         if (ult.numel () != 1)
           err_invalid_structure_assignment ();
@@ -3276,11 +3433,9 @@ namespace coder
             rhs_val = lst(0);
           }
 
-        ult.assign (op, rhs_val, &arg);
+        ult.assign (op, rhs_val, arg);
 
-        val = ult.value (&arg);
-
-        Pool::free (arg);
+        val = ult.value (arg);
       }
     catch (octave::index_exception& e)
       {
@@ -3574,8 +3729,9 @@ namespace coder
     octave_value val;
     try
       {
-        std::list<octave_value_list> arg;
-        coder_lvalue ult = lhs->lvalue (&arg);
+        coder_value_list arg;
+
+        coder_lvalue ult = lhs->lvalue (arg);
 
         if (ult.numel () != 1)
           err_invalid_structure_assignment ();
@@ -3595,11 +3751,9 @@ namespace coder
             rhs_val = lst(0);
           }
 
-        ult.assign (octave_value::op_asn_eq, rhs_val, &arg);
+        ult.assign (octave_value::op_asn_eq, rhs_val, arg);
 
         val = rhs_val;
-
-        Pool::free (arg);
       }
     catch (octave::index_exception& e)
       {
@@ -3677,7 +3831,6 @@ namespace coder
     return assign_expr (lhs, rhs, endkey,octave_value::op_el_and_eq);
   }
 
-
   coder_value
   AssignElOr::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
   {
@@ -3685,7 +3838,7 @@ namespace coder
   }
 
   void
-  MultiAssign::evaluate_n( int nargout, const Endindex& endkey, bool short_circuit)
+  MultiAssign::evaluate_n(coder_value_list& output, int nargout, const Endindex& endkey, bool short_circuit)
   {
     const int max_lhs_sz = 3;
 
@@ -3695,11 +3848,11 @@ namespace coder
 
     std::vector<coder_lvalue > lvalue_list_vec;
 
-    std::vector<std::list<octave_value_list> > lvalue_arg_vec ;
+    std::vector<coder_value_list> lvalue_arg_vec ;
 
     coder_lvalue lvalue_list_arr[max_lhs_sz] ={};
 
-    std::list<octave_value_list>  lvalue_arg_arr [max_lhs_sz] = {};
+    coder_value_list  lvalue_arg_arr [max_lhs_sz] = {};
 
     if (! small_lhs)
       {
@@ -3716,11 +3869,11 @@ namespace coder
           {
             lvalue_arg_vec.emplace_back ();
 
-            lvalue_list_vec.emplace_back (out->lvalue (&lvalue_arg_vec.back ()));
+            lvalue_list_vec.emplace_back (out->lvalue (lvalue_arg_vec.back ()));
           }
         else
           {
-            lvalue_list_arr[c] = out->lvalue (&lvalue_arg_arr[c]);
+            lvalue_list_arr[c] = out->lvalue (lvalue_arg_arr[c]);
             c++;
           }
       }
@@ -3733,7 +3886,7 @@ namespace coder
 
     coder_lvalue* lvalue_list = small_lhs ? lvalue_list_arr : lvalue_list_vec.data ();
 
-    std::list<octave_value_list>* lvalue_arg = small_lhs ? lvalue_arg_arr : lvalue_arg_vec.data ();
+    coder_value_list* lvalue_arg = small_lhs ? lvalue_arg_arr : lvalue_arg_vec.data ();
 
     for (int i = 0 ; i < l_sz; i++)
       {
@@ -3746,9 +3899,9 @@ namespace coder
         n_blackhole += lvalue_list[i].is_black_hole();
       }
 
-    rhs->evaluate_n (n_out , endkey);
+    coder_value_list rhs_val1;
 
-    auto rhs_val1 = Pool::pop_result();
+    rhs->evaluate_n (rhs_val1, n_out , endkey);
 
     bool rhs_cs_list = rhs_val1.back().length () == 1
                     && rhs_val1.back()(0).is_cs_list ();
@@ -3764,58 +3917,47 @@ namespace coder
 
     size_t ai = 0;
 
-    std::list<octave_value_list> retval;
+    coder_value_list& retval = output;
 
     if (l_sz  == 1 && lvalue_list[0].numel () == 0 && n > 0)
       {
         coder_lvalue& ult = lvalue_list[0];
-        std::list<octave_value_list>& arg = lvalue_arg[0];
 
-        if (ult.index_type () == "{" && ult.index_is_empty (&arg)
+        coder_value_list& arg = lvalue_arg[0];
+
+        if (ult.index_type () == "{" && ult.index_is_empty (arg)
             && ult.is_undefined ())
           {
             ult.define (Cell (1, 1));
 
-            ult.clear_index (&arg);
+            ult.clear_index (arg);
 
-            std::list<octave_value_list> idx = Pool::alloc(1);
+            coder_value_list idx ;
 
-            idx.back ()(0) = octave_value (1);
+            idx.append (octave_value (1));
 
-            ult.set_index ("{", &idx, &arg);
+            ult.set_index ("{", idx, arg);
 
-            ult.assign (octave_value::op_asn_eq, octave_value (rhs_val), &arg);
+            ult.assign (octave_value::op_asn_eq, octave_value (rhs_val), arg);
 
             if (n == 1 )
               {
-              if (nargout > 0)
-                {
-                  if (! rhs_cs_list)
-                    {
-                      Pool::push_result (rhs_val1);
-                    }
-                  else
-                    {
-                      retval = Pool::alloc(1);
-
-                      retval.back()(0) = rhs_val(0);
-
-                      Pool::push_result (retval);
-
-                      Pool::free (rhs_val1);
-                    }
-                }
-              else
-                {
-                  retval = Pool::alloc();
-
-                  Pool::push_result (retval);
-
-                  Pool::free (rhs_val1);
-                }
+                if (nargout > 0)
+                  {
+                    if (! rhs_cs_list)
+                      {
+                        retval.append (std::move (rhs_val1));
+                      }
+                    else
+                      {
+                        retval.append (rhs_val(0));
+                      }
+                  }
+                else
+                  {
+                    retval.append (coder_value_list (0));
+                  }
               }
-
-            Pool::free (arg);
 
             return;
           }
@@ -3829,7 +3971,9 @@ namespace coder
     const int nargout_retval = std::min (n_out-n_blackhole, nargout);
 
     if (nargout_retval < n)
-      retval = Pool::alloc (nargout_retval);
+      {
+        retval.append (coder_value_list(nargout_retval));
+      }
 
     for (int ii = 0 ; ii < l_sz; ii++)
       {
@@ -3837,7 +3981,7 @@ namespace coder
 
         octave_idx_type nel = ult.numel ();
 
-        std::list<octave_value_list>& arg = lvalue_arg[ai++];
+        coder_value_list& arg = lvalue_arg[ai++];
 
         if (nel != 1)
           {
@@ -3846,13 +3990,11 @@ namespace coder
 
             octave_value_list ovl = rhs_val.slice (k, nel);
 
-            *static_cast<octave_cs_list*> (valarg.internal_rep ()) = octave_cs_list (ovl);
-
-            ult.assign (octave_value::op_asn_eq, valarg, &arg);
+            ult.assign (octave_value::op_asn_eq, octave_value (ovl), arg);
 
             if (nargout_retval < n)
               for (octave_idx_type i = k; i < nel && j < nargout_retval; i++)
-                retval.back () (j++) = rhs_val(i);
+                retval(j++) = rhs_val(i);
 
             k += nel;
           }
@@ -3873,10 +4015,10 @@ namespace coder
                       error ("element number %s undefined in return list",
                              std::to_string (k+1).c_str ());
 
-                    ult.assign (octave_value::op_asn_eq, tmp, &arg);
+                    ult.assign (octave_value::op_asn_eq, tmp, arg);
 
                     if (nargout_retval < n && j < nargout_retval)
-                      retval.back () (j++) = tmp;
+                      retval (j++) = tmp;
 
                     k++;
                   }
@@ -3890,30 +4032,22 @@ namespace coder
                 continue;
               }
           }
-
-        Pool::free (arg);
       }
 
-    if (nargout_retval < n)
+    if (nargout_retval >= n)
       {
-        Pool::push_result (retval);
+        retval.clear ();
 
-        Pool::free (rhs_val1);
-      }
-    else
-      {
-        Pool::push_result (rhs_val1);
-
-        Pool::free (retval);
+        retval.append (std::move (rhs_val1));
       }
   }
 
   coder_value
   MultiAssign::evaluate(int nargout, const Endindex& endkey, bool short_circuit)
   {
-    evaluate_n(nargout, endkey, short_circuit);
+    coder_value_list result;
 
-    auto result = Pool::pop_result ();
+    evaluate_n(result, nargout, endkey, short_circuit);
 
     octave_value_list& vlist = result.back ();
 
@@ -3924,13 +4058,8 @@ namespace coder
     else
       retval = coder_value (vlist (0));
 
-    Pool::free (result);
-
     return retval;
   }
-
-
-
 
   coder_value
   TransMul::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
@@ -3992,13 +4121,147 @@ namespace coder
     return compound_binary_expr (op_lhs, op_rhs, endkey, octave_value::op_el_or_not);
   }
 
+  octave_value
+  eval_dot_separated_names (Index& index_expr)
+  {
+    const std::string& type = index_expr.idx_type;
+
+    auto& args = index_expr.arg_list;
+
+    auto& expr = index_expr.base;
+
+    Endindex endindex;
+
+    coder_value_list idx;
+
+    octave_value base_expr_val = octave_value(expr->evaluate ( 1, endindex), false);
+
+    for (auto& p_args: args)
+      {
+        auto struct_idx = get_struct_index (p_args, endindex);
+
+        idx.append (struct_idx);
+      }
+
+    octave_value_list tmp_list
+      = base_expr_val.subsref (type, idx, 1);
+
+    return tmp_list.length () ? tmp_list(0) : octave_value ();
+  }
+
+  static void err_invalid_fcn_handle (const std::string& name)
+  {
+    error ("invalid function handle, unable to find function for @%s",
+           name.c_str ());
+  }
+
   coder_value
   Handle::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
   {
-    return coder_value(new octave_fcn_handle (octave_value(static_cast<Symbol&>(op_rhs.get()).get_value(), true), name));
+    auto rhs = op_rhs.get ();
+
+    if (rhs.is_Symbol ())
+      {
+#if OCTAVE_MAJOR_VERSION >= 6
+        return coder_value(new octave_fcn_handle (octave_value(static_cast<Symbol&>(op_rhs.get()).get_value(), true)));
+#else
+        return coder_value(new octave_fcn_handle (octave_value(static_cast<Symbol&>(op_rhs.get()).get_value(), true), name));
+#endif
+      }
+#if OCTAVE_MAJOR_VERSION >= 6
+    Index& index_expr = static_cast<Index&> (op_rhs.get ());
+
+    std::string type = ".";
+
+    auto& args = index_expr.arg_list;
+
+    auto& expr = index_expr.base;
+
+    Endindex endindex;
+
+    bool have_object = false;
+
+    octave_value partial_expr_val = octave_value(expr->evaluate (1, endindex), false);
+
+    if (partial_expr_val.is_classdef_object ())
+      {
+        if (args.size () != 1)
+          err_invalid_fcn_handle (name);
+
+        have_object = true;
+      }
+
+    size_t i = 0;
+
+    for (auto& p_args: args)
+      {
+        if (partial_expr_val.is_package ())
+          {
+            if (have_object)
+              err_invalid_fcn_handle (name);
+
+            coder_value_list arg_list;
+
+            arg_list.append (get_struct_index (p_args, endindex));
+
+            try
+              {
+                octave_value_list tmp_list
+                  = partial_expr_val.subsref (type, arg_list, 0);
+
+                partial_expr_val
+                  = tmp_list.length () ? tmp_list(0) : octave_value ();
+
+                if (partial_expr_val.is_cs_list ())
+                  err_invalid_fcn_handle (name);
+              }
+            catch (octave::index_exception&)
+              {
+                err_invalid_fcn_handle (name);
+              }
+          }
+        else if (have_object || partial_expr_val.is_classdef_meta ())
+          {
+            if (++i != args.size () )
+              err_invalid_fcn_handle (name);
+
+            octave_value arg = get_struct_index (*std::prev (args.end ()), endindex);
+
+            return coder_value (new octave_fcn_handle (octave_value (fcn2ov (
+              [=](coder_value_list& output, const octave_value_list& args, int nargout)->void
+              {
+                coder_value_list arg_list;
+
+                arg_list.append (arg);
+
+                auto n = args.length ();
+
+                coder_value_list second_arg (n);
+
+                for (octave_idx_type i = 0; i < n; i++)
+                  second_arg(i) = args (i);
+
+                arg_list.append (std::move (second_arg));
+
+                octave_value base_expr = partial_expr_val;
+
+                output.append (base_expr.subsref (".(", arg_list, nargout));
+              }))));
+          }
+        else
+          err_invalid_fcn_handle (name);
+      }
+
+    err_invalid_fcn_handle (name);
+#endif
+    return coder_value {};
   }
 
+#if OCTAVE_MAJOR_VERSION >= 6
+  Anonymous::Anonymous(octave_base_value* arg) : value(new octave_fcn_handle (octave_value(arg))){}
+#else
   Anonymous::Anonymous(octave_base_value* arg) : value(new octave_fcn_handle (octave_value(arg), "<coderanonymous>")){}
+#endif
 
   coder_value
   Anonymous::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
@@ -4007,7 +4270,11 @@ namespace coder
     return  coder_value(value.val);
   }
 
+#if OCTAVE_MAJOR_VERSION >= 6
+  NestedHandle::NestedHandle(Ptr arg, const char* name) : value(new octave_fcn_handle (octave_value(static_cast<Symbol&>(arg.get()).get_value(), true))){}
+#else
   NestedHandle::NestedHandle(Ptr arg, const char* name) : value(new octave_fcn_handle (octave_value(static_cast<Symbol&>(arg.get()).get_value(), true), name)){}
+#endif
 
   coder_value
   NestedHandle::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
@@ -4015,6 +4282,7 @@ namespace coder
     value.val->grab();
     return  coder_value(value.val);
   }
+
   coder_value
   Matrixc::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
   {
@@ -4032,7 +4300,7 @@ namespace coder
 
             if (tmp.is_undefined ())
               {
-                continue;
+                error ("undefined element in matrix list");
               }
             else
               {
@@ -4177,7 +4445,7 @@ namespace coder
   }
 
   coder_lvalue
-  Tilde::lvalue(void* idx)
+  Tilde::lvalue(coder_value_list& idx)
   {
     coder_lvalue retval ;
 
@@ -4197,17 +4465,15 @@ namespace coder
 
         Ptr expr (*std::next(elt.begin()));
 
-        std::list<octave_value_list> arg;
+        coder_value_list arg;
 
-        coder_lvalue ult = id->lvalue (&arg);
+        coder_lvalue ult = id->lvalue (arg);
 
         octave_value init_val ( expr->evaluate (1), false);
 
-        ult.assign (octave_value::op_asn_eq, init_val, &arg);
+        ult.assign (octave_value::op_asn_eq, init_val, arg);
 
         retval = true;
-
-        Pool::free (arg);
       }
 
     return retval;
@@ -4232,7 +4498,9 @@ namespace coder
               }
             else
               {
-                coder_lvalue ref = (*elt.begin())->lvalue (nullptr);
+                coder_value_list lst;
+
+                coder_lvalue ref = (*elt.begin())->lvalue (lst);
 
                 ref.define (args(i));
               }
@@ -4245,7 +4513,9 @@ namespace coder
   void
   define_parameter_list_from_arg_vector(Ptr varargin, const octave_value_list& args)
   {
-    coder_lvalue ref = varargin->lvalue (nullptr);
+    coder_value_list lst;
+
+    coder_lvalue ref = varargin->lvalue (lst);
 
     ref.define (octave_value(args.cell_value()));
   }
@@ -4258,7 +4528,6 @@ namespace coder
 
     define_parameter_list_from_arg_vector(std::move(param_list), args);
 
-
     if (args.length () > num_named_args)
       {
         octave_idx_type n = args.length () - num_named_args;
@@ -4269,27 +4538,27 @@ namespace coder
       }
     else
       {
-        coder_lvalue ref = varargin->lvalue (nullptr);
+        coder_value_list lst;
+
+        coder_lvalue ref = varargin->lvalue (lst);
 
         ref.define (octave_value(Cell()));
       }
   }
 
   void
-  make_return_list(Ptr_list&& ret_list, int nargout)
+  make_return_list(coder_value_list& output, Ptr_list&& ret_list, int nargout)
   {
     if(ret_list.size() == 0)
       {
-        auto retval = Pool::alloc ();
-
-        Pool::push_result (retval);
+        output.append (coder_value_list (0));
 
         return;
       }
 
     int n_retval = std::max(nargout,1);
 
-    std::list<octave_value_list> retval1 = Pool::alloc (nargout);
+    coder_value_list retval1 (nargout);
 
     octave_value_list & retval = retval1.back ();
 
@@ -4309,17 +4578,20 @@ namespace coder
           retval(i) = octave_value(sym->get_value(), true);
       }
 
-    Pool::push_result (retval1);
+    if (n == 1 && retval(0).is_undefined ())
+      error_with_id ("Octave:undefined-function", "%s", "undefined value returned from function");
+
+    output.append (std::move (retval1));
   }
 
   void
-  make_return_list(Ptr_list&& ret_list, int nargout, Ptr varout)
+  make_return_list(coder_value_list& output, Ptr_list&& ret_list, int nargout, Ptr varout)
   {
     int len = ret_list.size();
 
-    make_return_list(std::move(ret_list), nargout);
+    coder_value_list retval1;
 
-    std::list<octave_value_list> retval1 = Pool::pop_result ();
+    make_return_list(retval1, std::move(ret_list), nargout);
 
     octave_value_list & retval = retval1.back ();
 
@@ -4349,11 +4621,11 @@ namespace coder
           retval(i) = vout(j++);
       }
 
-    Pool::push_result (retval1);
+    output.append (std::move (retval1));
   }
 
   void
-  make_return_list(Ptr varout)
+  make_return_list(coder_value_list& output, Ptr varout)
   {
     Expression& ex = varout;
 
@@ -4363,45 +4635,33 @@ namespace coder
 
     if (! val->is_defined ())
       {
-        auto retval = Pool::alloc ();
-        Pool::push_result (retval);
+        output.append (coder_value_list (0));
+
         return;
       }
 
     if (! val->iscell ())
       error("varargout must be a cell array object");
 
-    auto retval = Pool::alloc ();
-
-    retval.back () = val->list_value ();
-
-    Pool::push_result (retval);
+    output.append (val->list_value ());
   }
 
   void
-  make_return_list()
+  make_return_list(coder_value_list& output)
   {
-    auto retval = Pool::alloc ();
-
-    Pool::push_result (retval);
+    output.append (coder_value_list (0));
   }
 
   void
-  make_return_val (Ptr expr, int nargout)
+  make_return_val (coder_value_list& output, Ptr expr, int nargout)
   {
-    auto retval = Pool::alloc (1);
-
-    retval.back ()(0) = octave_value (expr->evaluate (nargout), false);
-
-    Pool::push_result (retval);
+    output.append (octave_value (expr->evaluate (nargout), false));
   }
 
   void
-  make_return_val ()
+  make_return_val (coder_value_list& output)
   {
-    auto retval = Pool::alloc ();
-
-    Pool::push_result (retval);
+    output.append (coder_value_list (0));
   }
 
   void SetEmpty(Symbol& id)
@@ -4429,15 +4689,17 @@ namespace coder
   }
 
   void
-  call_narginchk (int nargin, const octave_value_list& arg)
+  call_narginchk (coder_value_list& output, int nargin, const octave_value_list& arg)
   {
     if (arg.length () != 2)
       {
+#if OCTAVE_MAJOR_VERSION >= 6
+        Ffeval (*octave::interpreter::the_interpreter (),
+          ovl (octave_value ("help"), octave_value ("narginchk")), 0);
+#else
         Ffeval (ovl (octave_value ("help"), octave_value ("narginchk")), 0);
-
-        auto result = Pool::alloc ();
-
-        Pool::push_result (result);
+#endif
+        output.append (coder_value_list (0));
       }
 
     octave_value minargs = arg(0);
@@ -4459,18 +4721,15 @@ namespace coder
     else if (nargin > maxargs.idx_type_value ())
       error ("narginchk: too many input arguments");
 
-    auto result = Pool::alloc ();
-    Pool::push_result (result);
+    output.append (coder_value_list (0));
   }
 
   void
-  call_nargoutchk (int nargout, const octave_value_list& arg, int nout)
+  call_nargoutchk (coder_value_list& output, int nargout, const octave_value_list& arg, int nout)
   {
     octave_value_list input = arg;
 
-    auto result = Pool::alloc (1);
-
-    octave_value& msg = result.back ()(0);
+    octave_value msg;
 
     const int minargs=0, maxargs=1, nargs=2, outtype=3;
 
@@ -4544,63 +4803,65 @@ namespace coder
       }
     else
       {
+#if OCTAVE_MAJOR_VERSION >= 6
+        Ffeval (*octave::interpreter::the_interpreter (),
+          ovl (octave_value ("help"), octave_value ("nargoutchk")), 0);
+#else
         Ffeval (ovl (octave_value ("help"), octave_value ("nargoutchk")), 0);
+#endif
       }
 
-    Pool::push_result (result);
+    output.append (msg);
   }
 
   void
-  call_nargin (int nargin, const octave_value_list& arg, int nout)
+  call_nargin (coder_value_list& output, int nargin, const octave_value_list& arg, int nout)
   {
-    std::list<octave_value_list> result;
+    auto& result = output;
 
     if (arg.length() > 0)
       {
-        result = Pool::alloc();
-        result.back() = Fnargin(*octave::interpreter::the_interpreter (), arg, nout);
+        result.append(Fnargin(*octave::interpreter::the_interpreter (), arg, nout));
       }
     else
       {
-        result = Pool::alloc(1);
-        result.back()(0) =  octave_value(double(nargin));
+        result.append (octave_value(double(nargin)));
       }
-
-    Pool::push_result(result);
   }
 
   void
-  call_nargout (int nargout, const octave_value_list& arg, int nout)
+  call_nargout (coder_value_list& output, int nargout, const octave_value_list& arg, int nout)
   {
-    std::list<octave_value_list> result;
+    auto& result = output;
 
     if (arg.length() > 0)
       {
-        result = Pool::alloc();
-        result.back() = Fnargout(*octave::interpreter::the_interpreter (), arg, nout);
+        result.append (Fnargout(*octave::interpreter::the_interpreter (), arg, nout));
       }
     else
       {
-        result = Pool::alloc(1);
-        result.back()(0) =  octave_value(double(nargout));
+        result.append (octave_value(double(nargout)));
       }
-
-    Pool::push_result(result);
   }
 
   //FIXME : always returns true!
   void
-  call_isargout (int nargout, const octave_value_list& arg, int nout)
+  call_isargout (coder_value_list& output, int nargout, const octave_value_list& arg, int nout)
   {
-    auto result = Pool::alloc(1);
+    auto& result = output;
 
-    result.back()(0) =  octave_value (false);
+    result.append (octave_value (false));
 
-    octave_value& retval = result.back()(0);
+    octave_value& retval = result(0);
 
     if (arg.length () != 1)
       {
+#if OCTAVE_MAJOR_VERSION >= 6
+        Ffeval (*octave::interpreter::the_interpreter (),
+          ovl (octave_value ("help"), octave_value ("isargout")), 0);
+#else
         Ffeval (ovl (octave_value ("help"), octave_value ("isargout")), 0);
+#endif
       }
     if (arg(0).is_scalar_type ())
       {
@@ -4620,30 +4881,72 @@ namespace coder
       }
     else
       err_wrong_type_arg ("isargout", arg (0));
-
-    Pool::push_result (result);
   }
 
-  void recover_from_excep ()
+  void recover_from_execution_excep ()
   {
-    octave::interpreter::recover_from_exception ();
+    try
+      {
+        throw;
+      }
+    catch (const octave::execution_exception& ee)
+      {
+#if OCTAVE_MAJOR_VERSION >= 6
+        auto& es = octave::interpreter::the_interpreter ()->get_error_system ();
+
+        es.save_exception (ee);
+
+        octave::interpreter::the_interpreter ()-> recover_from_exception ();
+#else
+        octave::interpreter::recover_from_exception ();
+#endif
+      }
   }
 
-  void throw_exec_excep ()
+  void recover_from_execution_and_interrupt_excep ()
   {
-    throw octave::execution_exception ();
+    try
+      {
+        throw;
+      }
+    catch (const octave::execution_exception& ee)
+      {
+#if OCTAVE_MAJOR_VERSION >= 6
+        auto& es = octave::interpreter::the_interpreter ()->get_error_system ();
+
+        es.save_exception (ee);
+
+        octave::interpreter::the_interpreter ()-> recover_from_exception ();
+#else
+        octave::interpreter::recover_from_exception ();
+#endif
+      }
+    catch (const octave::interrupt_exception&)
+      {
+#if OCTAVE_MAJOR_VERSION >= 6
+        octave::interpreter::the_interpreter ()-> recover_from_exception ();
+#else
+        octave::interpreter::recover_from_exception ();
+#endif
+      }
   }
 
   void assign_try_id (Ptr expr_id)
   {
-    std::list<octave_value_list> idx;
-    coder_lvalue ult = expr_id->lvalue (&idx);
+    coder_value_list idx;
+    coder_lvalue ult = expr_id->lvalue (idx);
     octave_scalar_map err;
+#if OCTAVE_MAJOR_VERSION >= 6
+    auto& es = octave::interpreter::the_interpreter ()->get_error_system ();
+    err.assign ("message", es.last_error_message ());
+    err.assign ("identifier", es.last_error_id ());
+    err.assign ("stack", es.last_error_stack ());
+#else
     err.assign ("message", last_error_message ());
     err.assign ("identifier", last_error_id ());
     err.assign ("stack", last_error_stack ());
-    ult.assign (octave_value::op_asn_eq, err,&idx);
-    Pool::free (idx);
+#endif
+    ult.assign (octave_value::op_asn_eq, err, idx);
   }
 
   class for_loop_rep
@@ -4662,7 +4965,7 @@ namespace coder
       rng (),
       steps(),
       idx (),
-    ult(lhs->lvalue (&ult_idx))
+    ult(lhs->lvalue (ult_idx))
     {
       switch (looptype)
         {
@@ -4681,7 +4984,7 @@ namespace coder
 
         case scalar_loop :
           {
-            ult.assign (octave_value::op_asn_eq, val, &ult_idx);
+            ult.assign (octave_value::op_asn_eq, val, ult_idx);
 
             steps = 1;
 
@@ -4718,13 +5021,14 @@ namespace coder
 
                     iidx = 1;
                   }
+
                 idx (iidx) = iidx;
 
                 base_val = idx.xelem (iidx).internal_rep ();
               }
             else
               {
-                ult.assign (octave_value::op_asn_eq, val, &ult_idx);
+                ult.assign (octave_value::op_asn_eq, val, ult_idx);
 
                 steps = 0;
               }
@@ -4738,27 +5042,23 @@ namespace coder
           }
         }
     }
+
     void set_loop_val (octave_idx_type i)
     {
       if (looptype == range_loop)
         {
           static_cast<octave_scalar*>(base_val)->scalar_ref() = rng.elem (i);
 
-          ult.assign (octave_value::op_asn_eq, val, &ult_idx);
+          ult.assign (octave_value::op_asn_eq, val, ult_idx);
         }
       else if (looptype == matrix_loop)
         {
-          static_cast<octave_scalar*>(base_val)->scalar_ref()  = i + 1;
+          static_cast<octave_scalar*>(base_val)->scalar_ref() = i + 1;
 
           octave_value tmp = val.do_index_op (idx);
 
-          ult.assign (octave_value::op_asn_eq, tmp, &ult_idx);
+          ult.assign (octave_value::op_asn_eq, tmp, ult_idx);
         }
-    }
-
-    ~for_loop_rep ()
-    {
-      Pool::free (ult_idx);
     }
 
     for_iterator begin()  { return for_iterator (this,0); }
@@ -4773,7 +5073,7 @@ namespace coder
 
     octave_base_value* base_val;
 
-    Range  rng;
+    Range rng;
 
     octave_idx_type steps;
 
@@ -4781,7 +5081,7 @@ namespace coder
 
     coder_lvalue ult;
 
-    std::list<octave_value_list> ult_idx;
+    coder_value_list ult_idx;
   };
 
   class struct_loop_rep
@@ -4795,9 +5095,9 @@ namespace coder
       if (! rhs.val->isstruct ())
         error ("in statement 'for [X, Y] = VAL', VAL must be a structure");
 
-      val_ref = (v)->lvalue (&idxs[0]);
+      val_ref = (v)->lvalue (idxs[0]);
 
-      key_ref = (k)->lvalue (&idxs[1]);
+      key_ref = (k)->lvalue (idxs[1]);
 
       keys = rhs.val->map_keys ();
 
@@ -4821,12 +5121,6 @@ namespace coder
         }
     }
 
-    ~struct_loop_rep ()
-    {
-      Pool::free (idxs[0]);
-      Pool::free (idxs[1]);
-    }
-
     void set_loop_val (octave_idx_type i)
     {
       const std::string &key = keys.xelem(i);
@@ -4835,7 +5129,7 @@ namespace coder
         {
           const octave_value& val_lst = tmp_scalar_val.contents(i) ;
 
-          val_ref.assign (octave_value::op_asn_eq, val_lst, &idxs[0] );
+          val_ref.assign (octave_value::op_asn_eq, val_lst, idxs[0] );
         }
       else
         {
@@ -4845,10 +5139,10 @@ namespace coder
 
           val_mat->matrix_ref () = val_lst;
 
-          val_ref.assign (octave_value::op_asn_eq, val, &idxs[0] );
+          val_ref.assign (octave_value::op_asn_eq, val, idxs[0]);
         }
 
-      key_ref.assign (octave_value::op_asn_eq, key, &idxs[1]);
+      key_ref.assign (octave_value::op_asn_eq, key, idxs[1]);
     }
 
     struct_iterator begin()  { return struct_iterator (this,0); }
@@ -4863,7 +5157,7 @@ namespace coder
 
     octave_scalar_map tmp_scalar_val;
 
-    std::list<octave_value_list>  idxs [2] ;
+    coder_value_list idxs [2] ;
 
     coder_lvalue val_ref;
 

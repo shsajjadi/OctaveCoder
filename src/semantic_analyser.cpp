@@ -1,3 +1,4 @@
+#include <memory>
 #include "sys/stat.h"
 
 #include <octave/builtin-defun-decls.h>
@@ -7,6 +8,7 @@
 #include <octave/oct.h>
 #include <octave/oct-env.h>
 #include <octave/ov-usr-fcn.h>
+#include <octave/version.h>
 
 #include "semantic_analyser.h"
 
@@ -21,6 +23,38 @@ namespace coder_compiler
       m_mtime = st.st_mtime;
 
     ok = result == 0;
+  }
+
+  function_finder::function_finder (const octave::symbol_scope& scope)
+    :
+      oldscope (octave::interpreter::the_interpreter ()->get_symbol_table().current_scope()),
+      newscope (scope)
+  {
+#if OCTAVE_MAJOR_VERSION < 6
+    octave::symbol_table& octave_symtab = octave::interpreter::the_interpreter ()->get_symbol_table();
+
+    octave_symtab.set_scope(scope);
+#endif
+  }
+
+  octave_value function_finder::find_function (const std::string& name)
+  {
+    octave::symbol_table& octave_symtab = octave::interpreter::the_interpreter ()->get_symbol_table();
+
+#if OCTAVE_MAJOR_VERSION >= 6
+    return octave_symtab.find_function (name, octave_value_list (), newscope);
+#else
+    return octave_symtab.find_function (name, octave_value_list ());
+#endif
+  }
+
+  function_finder::~function_finder ()
+  {
+#if OCTAVE_MAJOR_VERSION < 6
+    octave::symbol_table& octave_symtab = octave::interpreter::the_interpreter ()->get_symbol_table();
+
+    octave_symtab.set_scope(oldscope);
+#endif
   }
 
   semantic_analyser::semantic_analyser(  )
@@ -238,13 +272,7 @@ namespace coder_compiler
   void
   semantic_analyser::visit_octave_user_function (octave_user_function& fcnn)
   {
-    octave::symbol_scope scope = fcnn.scope() ;
-
-    octave::symbol_table& octave_symtab = octave::interpreter::the_interpreter ()->get_symbol_table();
-
-    octave::symbol_scope current_octave_scope = octave_symtab.current_scope();
-
-    octave_symtab.set_scope(scope);
+    scope_stack.push (fcnn.scope());
 
     octave::tree_parameter_list *ret_list = fcnn.return_list ();
 
@@ -388,8 +416,7 @@ namespace coder_compiler
           }
       }
 
-    octave_symtab.set_scope(current_octave_scope);
-
+    scope_stack.pop ();
   }
 
   void
@@ -448,7 +475,14 @@ namespace coder_compiler
   {
     std::string nm = expr.name ();
 
-    insert_symbol(nm);
+    size_t pos = nm.find ('.', 0);
+
+    if (pos != std::string::npos)
+      {
+        insert_symbol(nm.substr (0, pos));
+      }
+    else
+      insert_symbol(nm);
   }
 
   coder_file_ptr
@@ -515,9 +549,7 @@ namespace coder_compiler
               }
             else
               {
-                octave::symbol_table& octave_symtab = octave::interpreter::the_interpreter ()->get_symbol_table();
-
-                fcn = octave_symtab.find_function (name, octave_value_list ());
+                fcn = find_function (name);
 
                 file = add_fcn_to_task_queue(current_file (), name, fcn);
               }
@@ -580,9 +612,7 @@ namespace coder_compiler
           }
         else
           {
-            octave::symbol_table& octave_symtab = octave::interpreter::the_interpreter ()->get_symbol_table();
-
-            fcn = octave_symtab.find_function (name, octave_value_list ());
+            fcn = find_function (name);
 
             file = add_fcn_to_task_queue(current_file (), name, fcn);
           }
@@ -891,13 +921,7 @@ namespace coder_compiler
     if (! fcnn)
       return;
 
-    octave::symbol_scope scope = fcnn->scope() ;
-
-    octave::symbol_table& octave_symtab = octave::interpreter::the_interpreter ()->get_symbol_table();
-
-    octave::symbol_scope current_octave_scope = octave_symtab.current_scope();
-
-    octave_symtab.set_scope(scope);
+    scope_stack.push (fcnn->scope ());
 
     auto dep_old = external_symbols.at(file);
 
@@ -907,7 +931,7 @@ namespace coder_compiler
 
         for (const auto& sym_name : callee.second)
           {
-            octave_value new_src = octave_symtab.find_function (sym_name, octave_value_list ());
+            octave_value new_src = find_function (sym_name);
 
             coder_file_ptr new_file = add_fcn_to_task_queue (file, sym_name, new_src);
 
@@ -918,7 +942,7 @@ namespace coder_compiler
           }
       }
 
-    octave_symtab.set_scope(current_octave_scope);
+    scope_stack.pop ();
 
     auto& dep = dependency_graph.at(file);
 
@@ -1054,7 +1078,6 @@ namespace coder_compiler
 
     if (create_new_file)
       {
-
         builtin_file->id = 0;
 
         builtin_file->type = file_type::builtin;
@@ -1190,7 +1213,7 @@ namespace coder_compiler
 
                 dep_imports(i) = imports;
               }
-              i++;
+            i++;
           }
 
         auto file_dependency = external_symbols.find(file);
@@ -1485,5 +1508,11 @@ namespace coder_compiler
 
         visited[file] = false;
       }
+  }
+
+  octave_value
+  semantic_analyser::find_function (const std::string& name)
+  {
+    return scope_stack.top ().find_function (name);
   }
 }

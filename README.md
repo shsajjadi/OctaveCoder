@@ -20,10 +20,15 @@ The default build mode is the "single" mode. However sometimes because of the la
 
 There is also a difference in handling of `global` and `persistent` variables. `global` and `persistent` variables are shared between .oct files that are generated in the "dynamic" mode while in the "single" and "static" mode each .oct file contains all of its dependencies including the global and persistent variables and cannot access the global and persistent variables related to other .oct files. 
 
+### Development style
+Previously new branches were created per each Octave release but curently there is a main development line that works on all Octave official releases  starting from Octave 4.4.0 . When a new Octave version say 6.1 is released it brings two types of features, refactoring or fixes. The first type is mostly related to evaluation of expressions. Those fixes when are also fixed in Coder results in the improvemnet of Coder for previous Octave versions. So the (correct) result of an expression in the new Coder release that is installed on Octave 5.2 may be different than the errorneus result of the same expression when evaluated on the interpreter of Octave 5.2. The second types of features and fixes cannot be applied to previous versions so #if macro is used to conditionally include those features. They will be specific to the new Octave version and possibly the later Octave releases.
+
 ### Installing
 
-Similar to other Octave packages download the proper *.tar.gz released package and in Octave use `pkg` command:
+Similar to other Octave packages download the proper *.tar.gz released package and in Octave use `pkg` command to install and load the package:
+
     > pkg install coder-4.4.0.tar.gz
+    > pkg load coder
 
 ### License
 
@@ -71,7 +76,7 @@ When 'static' or 'dynamic' are used as the build mode, a 'cache' directory name 
 
 - 'upgrade'    :   false (default) | true;
 
-Used in combination with 'dynamic' mode to udgrade the cache for any possible change in the dependency of the previously created .oct files. The default value is false.
+Used in combination with 'dynamic' mode to upgrade the cache for any possible change in the dependency of the previously created .oct files. The default value is false.
 
 - 'KeepSource' :   false (default) | true
 
@@ -79,7 +84,7 @@ When a .oct file is generated a .cc and a .o file are also created in the same d
 
 - 'debug'      :   false (default) | true
 
-By default the debug symbols aren't preserved. Also the linked libraries are stripped (gcc -g and -s options are used). It results in the smaller file size and usually faster compilation time. Debug symbols can be preserved by setting the optin to true.
+By default the debug symbols aren't preserved. Also the linked libraries are stripped (gcc -g and -s options are used). It results in the smaller file size and usually faster compilation time. Debug symbols can be preserved by setting the option to true.
 
 - 'verbose' :   false (default) | true
 

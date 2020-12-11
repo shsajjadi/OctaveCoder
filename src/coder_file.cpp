@@ -11,19 +11,28 @@
 #include <octave/ov-classdef.h>
 #include <octave/ov-fcn.h>
 #include <octave/ov-usr-fcn.h>
+#include <octave/version.h>
 
 #include "coder_file.h"
 
-
 namespace coder_compiler
 {
+  void change_directory (octave::interpreter& interp, const octave_value_list& dirname, int nargout)
+  {
+#if OCTAVE_MAJOR_VERSION >= 6
+    Fcd(interp, dirname, nargout);
+#else
+    Fcd(dirname, nargout);
+#endif
+  }
+
   coder_file::coder_file(
     const std::string& name,
     int id ,
     const std::string& path ,
     time_t timestamp ,
     file_type type ,
-    const octave_value& fcn 
+    const octave_value& fcn
   )
   :name(name), id(id), path(path), timestamp(timestamp),
   type(type), fcn(fcn),  local_functions()
@@ -31,19 +40,19 @@ namespace coder_compiler
     if(type == file_type::m || type == file_type::cmdline)
       local_functions.emplace_back(name);
   }
-    
-	symtab& 
-  coder_file::current_local_function() 
+
+	symtab&
+  coder_file::current_local_function()
   {
 		return local_functions.back();
 	}
-  
-	void 
+
+	void
   coder_file::add_new_local_function(const std::string& name )
 	{
 		local_functions.emplace_back(name);
 	}
-  
+
   std::deque<std::vector<std::deque<symscope_ptr>>>
   coder_file::traverse()
   {
@@ -53,130 +62,132 @@ namespace coder_compiler
       {
         traverserd_scopes.push_back(table.traverse());
       }
-      
+
     return traverserd_scopes;
   }
-  
-  std::string 
+
+  std::string
   find_meta_path(const octave_value& meta, const std::string& nm)
   {
     std::string result;
-      
-    {
-      octave::load_path& lpath = octave::interpreter::the_interpreter ()->get_load_path ();
-      
-      for (auto d: lpath.dir_list())
-        {
-          octave::sys::dir_entry dir (d);
-          
-          if (dir)
-            {
-              string_vector flist = dir.read ();
-              
-              octave_idx_type len = flist.numel ();
-              
-              for (octave_idx_type i = 0; i < len; i++)
-                {
-                  std::string fname = flist[i];
 
-                  std::string full_name = octave::sys::file_ops::concat (d, fname);
+    octave::load_path& lpath = octave::interpreter::the_interpreter ()->get_load_path ();
 
-                  octave::sys::file_stat fs (full_name);
-                  
-                  if (fs)
-                    {
-                      if (meta.is_package())
-                        {
-                          if (fs.is_dir ())
+    for (auto d: lpath.dir_list())
+      {
+        octave::sys::dir_entry dir (d);
+
+        if (dir)
+          {
+            string_vector flist = dir.read ();
+
+            octave_idx_type len = flist.numel ();
+
+            for (octave_idx_type i = 0; i < len; i++)
+              {
+                std::string fname = flist[i];
+
+                std::string full_name = octave::sys::file_ops::concat (d, fname);
+
+                octave::sys::file_stat fs (full_name);
+
+                if (fs)
+                  {
+                    if (meta.is_package())
+                      {
+                        if (fs.is_dir ())
+                          {
+                            if (fname[0] == '+' && fname.substr (1) == nm)
                             {
-                              if (fname[0] == '+' && fname.substr (1) == nm)
-                              {
-                                cdef_manager& cdm = octave::interpreter::the_interpreter ()->get_cdef_manager ();
-                                
-                                auto cur_dir = ovl(octave::sys::env::get_current_directory ());
-                                
-                                Fcd(ovl(octave_value(d)));
-                                
-                                cdef_package pack = cdm.find_package (nm, false, true);	
-                                
-                                Fcd(cur_dir);
-                                
-                                if (pack.ok ())
-                                  return d;
-                              }
-                            }
-                        }
-                      else // if it is a class
-                        {
-                          if (
-                          (fs.is_dir () && (fname[0] == '@' && fname.substr (1) == nm))
-                          ||
-                          (!fs.is_dir () && fname == nm + ".m")
-                          )
-                            {
-                              cdef_manager& cdm = octave::interpreter::the_interpreter ()->get_cdef_manager ();
-                              
+                              octave::interpreter& interp = *octave::interpreter::the_interpreter ();
+
+                              auto& cdm = interp.get_cdef_manager ();
+
                               auto cur_dir = ovl(octave::sys::env::get_current_directory ());
-                              
-                              Fcd(ovl(octave_value(d)));
-                              
-                              cdef_class klass = cdm.find_class (nm, false, true);	
-                              
-                              Fcd(cur_dir);
 
-                              if (klass.ok () )
+                              change_directory(interp, ovl(octave_value(d)));
+
+                              auto pack = cdm.find_package (nm, false, true);
+
+                              change_directory(interp, cur_dir);
+
+                              if (pack.ok ())
                                 return d;
-                            }                   
-                        }
-                    }
-                }
-            }
-        }        
-    }
-    
+                            }
+                          }
+                      }
+                    else // if it is a class
+                      {
+                        if (
+                        (fs.is_dir () && (fname[0] == '@' && fname.substr (1) == nm))
+                        ||
+                        (!fs.is_dir () && fname == nm + ".m")
+                        )
+                          {
+                            octave::interpreter& interp = *octave::interpreter::the_interpreter ();
+
+                            auto& cdm = interp.get_cdef_manager ();
+
+                            auto cur_dir = ovl(octave::sys::env::get_current_directory ());
+
+                            change_directory(interp, ovl(octave_value(d)));
+
+                            auto klass = cdm.find_class (nm, false, true);
+
+                            change_directory(interp, cur_dir);
+
+                            if (klass.ok () )
+                              return d;
+                          }
+                      }
+                  }
+              }
+          }
+      }
+
     return result;
-  }	
-  
+  }
+
   std::tuple<file_type ,std::string, std::string>
   find_file_type_name_and_path(const octave_value& val, const std::string& symbol_name)
   {
     std::string file_name,dir_name;
-    
+
     file_type type = file_type::unknown;
-    
+
     octave_function *fcn = nullptr;
-    
+
     if(val.is_function())
       fcn = val.function_value ();
-    
+
     if (val.is_user_function ())
       {
         octave_user_function * user_fcn =val.user_function_value();
-        
+
         if (! user_fcn->is_subfunction() && ! user_fcn->is_nested_function())
           {
             if (fcn && ! (fcn->is_system_fcn_file() && (symbol_name == "narginchk" || symbol_name == "nargoutchk")))
               {
                 std::string file_full_name
                   = octave::sys::env::make_absolute(octave::sys::file_ops::tilde_expand (fcn->fcn_file_name ()));
-                
+
                 if (file_full_name.empty())
                   {
                     type = file_type::cmdline;
-                    
+
                     file_name = symbol_name;
                   }
                 else
                   {
                     type = file_type::m;
-                    
+
                     size_t pos
                       = file_full_name.find_last_of (octave::sys::file_ops::dir_sep_str ());
 
-                    dir_name 
+                    dir_name
                       = file_full_name.substr (0, pos);
-                      
-                    file_name 
+
+                    file_name
                       = file_full_name.substr (pos+1, file_full_name.length() - pos - 3);
                   }
               }
@@ -189,7 +200,7 @@ namespace coder_compiler
         if (symbol_name != "nargin" && symbol_name != "nargout" && symbol_name != "isargout")
           {
             file_name = "builtins";
-            
+
             type = file_type::builtin;
           }
       }
@@ -203,13 +214,13 @@ namespace coder_compiler
             size_t pos
               = file_full_name.find_last_of (octave::sys::file_ops::dir_sep_str ());
 
-            dir_name 
+            dir_name
               = file_full_name.substr (0, pos);
-              
-            file_name 
+
+            file_name
               = file_full_name.substr (pos+1, file_full_name.length() - pos - 5);
           }
-      
+
         type = file_type::oct;
       }
     else if ( val.is_mex_function())
@@ -222,13 +233,13 @@ namespace coder_compiler
             size_t pos
               = file_full_name.find_last_of (octave::sys::file_ops::dir_sep_str ());
 
-            dir_name 
+            dir_name
               = file_full_name.substr (0, pos);
-              
-            file_name 
+
+            file_name
               = file_full_name.substr (pos+1, file_full_name.length() - pos - 5);
           }
-      
+
         type = file_type::mex;
       }
     else if ( val.is_classdef_meta())
@@ -241,9 +252,9 @@ namespace coder_compiler
           {
             type = file_type::classdef;
           }
-          
+
         dir_name = octave::sys::env::make_absolute(octave::sys::file_ops::tilde_expand(find_meta_path(val,symbol_name)));
-        
+
         file_name = symbol_name;
       }
 

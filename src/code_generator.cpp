@@ -1,4 +1,5 @@
 #include  <bitset>
+#include  <memory>
 
 #include <octave/error.h>
 #include <octave/input.h>
@@ -352,7 +353,7 @@ namespace coder_compiler
     os_src
       << "Anonymous (fcn2ov(["
       << "="
-      << "](const octave_value_list& args, int nargout) mutable\n{\n";
+      << "](coder_value_list& output, const octave_value_list& args, int nargout) mutable\n{\n";
 
     increment_indent_level (os_src);
 
@@ -390,10 +391,12 @@ namespace coder_compiler
 
     octave::tree_expression *expr = anon_fh.expression ();
 
-    os_src << "return make_return_val(";
+    os_src << "return make_return_val(output";
 
     if (expr)
       {
+        os_src << ", ";
+
         expr->accept (*this);
 
         os_src << ", nargout";
@@ -631,7 +634,7 @@ namespace coder_compiler
   {
     if (unwinding)
       {
-        os_src << "throw unwind_ex::break_unwind;\n";
+        os_src << "throw break_unwind {};\n";
       }
     else
       os_src << "break;\n";
@@ -690,7 +693,7 @@ namespace coder_compiler
   {
     if (unwinding)
       {
-        os_src << "throw unwind_ex::continue_unwind;\n";
+        os_src << "throw continue_unwind {};\n";
       }
     else
       os_src << "continue;\n";
@@ -902,7 +905,7 @@ namespace coder_compiler
         declare_persistent_variables();
 
         os_src
-          << "auto nested_fcn = [&](const octave_value_list& args, int nargout)\n{\n";
+          << "auto nested_fcn = [&](coder_value_list& output, const octave_value_list& args, int nargout)\n{\n";
 
         release (os_src);
 
@@ -946,13 +949,13 @@ namespace coder_compiler
           << "};\n";
 
         os_src
-          << "auto nested_hdl = [=](const octave_value_list& args, int nargout) mutable \n{\n";
+          << "auto nested_hdl = [=](coder_value_list& output, const octave_value_list& args, int nargout) mutable \n{\n";
 
         increment_indent_level (os_src);
 
         os_src
           << mangle(fcn.name ())
-          << " = Symbol (fcn2ov([&] (const octave_value_list& args, int nargout)\n{\n";
+          << " = Symbol (fcn2ov([&] (coder_value_list& output, const octave_value_list& args, int nargout)\n{\n";
 
         increment_indent_level (os_src);
 
@@ -965,7 +968,7 @@ namespace coder_compiler
           << "}));\n"
           << "return "
           << mangle(fcn.name ())
-          << ".call (nargout, args);\n";
+          << ".call (output, nargout, args);\n";
 
         decrement_indent_level (os_src);
 
@@ -990,7 +993,7 @@ namespace coder_compiler
       {
         os_src
           << "Symbol (fcn2ov(["
-          << "](const octave_value_list& args, int nargout)\n{\n";
+          << "](coder_value_list& output, const octave_value_list& args, int nargout)\n{\n";
 
         increment_indent_level (os_src);
 
@@ -1053,10 +1056,12 @@ namespace coder_compiler
 
         int len = ret_list->length ();
 
-        os_src << "return make_return_list(";
+        os_src << "return make_return_list(output";
 
         if (len > 0 )
           {
+            os_src << ", ";
+
             return_list_from_param_list(*ret_list);
 
             os_src
@@ -1066,8 +1071,7 @@ namespace coder_compiler
 
         if (takes_var_return)
           {
-            if (len > 0)
-              os_src << ", ";
+            os_src << ", ";
 
             os_src << mangle("varargout");
           }
@@ -1075,7 +1079,7 @@ namespace coder_compiler
         os_src << ");\n";
       }
     else
-      os_src << "return make_return_list();\n";
+      os_src << "return make_return_list(output);\n";
 
     decrement_indent_level (os_src);
 
@@ -1173,27 +1177,6 @@ namespace coder_compiler
       }
   }
 
-  bool
-  code_generator::includes_magic_end (octave::tree_argument_list& arg_list) const
-  {
-    bool retval = false;
-
-    for (octave::tree_expression *elt : arg_list)
-      {
-        if (! retval && elt && elt->has_magic_end ())
-          retval = true;
-
-        if (! retval && elt && elt->is_identifier ())
-          {
-            octave::tree_identifier *id = dynamic_cast<octave::tree_identifier *> (elt);
-
-            retval = id && id->is_black_hole ();
-          }
-      }
-
-    return retval;
-  }
-
   void
   code_generator::visit_index_expression (octave::tree_index_expression& expr)
   {
@@ -1228,7 +1211,7 @@ namespace coder_compiler
       {
         octave::tree_argument_list *elt = *p++;
 
-        os_src  << "{{";
+        os_src  << "{";
 
         if (type_tags[i] == '.')
           {
@@ -1250,15 +1233,26 @@ namespace coder_compiler
                       panic_impossible ();
                   }
                 else
-                  os_src << quote(fn) << "__";
+                  {
+                    std::string text_rep = quote(fn) + "__";
+
+                    auto f = constant_map.find(text_rep);
+
+                    if(f == constant_map.end())
+                      {
+                        os_src << "Const(" << nconst << ")";
+
+                        constant_map[text_rep] = nconst++;
+                      }
+                    else
+                      os_src << "Const(" << f->second << ")";
+                  }
               }
           }
         else if (elt)
           elt->accept (*this);
 
         os_src
-          << "}, "
-          << (type_tags[i] != '.' && elt && includes_magic_end (*elt))
           << "}";
 
         if (i+1 < n)
@@ -1645,10 +1639,45 @@ namespace coder_compiler
       os_src << "Const(" << f->second << ")";
   }
 
+  std::unique_ptr<octave::tree_index_expression>
+  static make_index_expression_from_fcn_handle (octave::tree_fcn_handle& expr)
+  {
+    std::string nm = expr.name ();
+
+    size_t pos = nm.find ('.',  0);
+
+    std::unique_ptr<octave::tree_index_expression> result;
+
+    if (pos != std::string::npos)
+      {
+        std::string id_name = nm.substr (0, pos);
+
+        octave::tree_identifier* id = new octave::tree_identifier (octave::symbol_record (id_name), expr.line (), expr.column ());
+
+        for (size_t i = pos+1 ;i < nm.size ();)
+          {
+            pos = std::min(nm.find ('.',  i), nm.size ());
+
+            std::string field = nm.substr (i, pos-i);
+
+            if (! result)
+              result.reset(new octave::tree_index_expression (id, field, expr.line (), expr.column ()));
+            else
+              result->append (field);
+
+            i = pos + 1;
+          }
+      }
+
+    return result;
+  }
+
   void
   code_generator::visit_fcn_handle (octave::tree_fcn_handle&  fh )
   {
     const auto& scope = traversed_scopes.front()[0].front();
+
+    auto idx = make_index_expression_from_fcn_handle (fh);
 
     bool is_nested =
       scope->contains(fh.name(), symbol_type::nested_fcn)
@@ -1661,14 +1690,18 @@ namespace coder_compiler
     else
       os_src
         <<"Handle(";
-    os_src
-      << mangle(fh.name());
 
+    if (idx)
+      idx->accept (*this);
+    else
+      {
+        os_src
+          << mangle(fh.name());
 
-    if(is_nested)
-      os_src
-        << "make(true)";
-
+        if(is_nested)
+          os_src
+            << "make(true)";
+      }
 
     os_src
       << ", \""
@@ -1800,7 +1833,7 @@ namespace coder_compiler
   {
     if (unwinding)
       {
-        os_src << "throw unwind_ex::return_unwind;\n";
+        os_src << "throw return_unwind {};\n";
       }
     else
       os_src << "goto Return;\n";

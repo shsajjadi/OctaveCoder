@@ -78,7 +78,7 @@ contains the required shared libraries that are used by the generated .oct file.
 
 @item 'upgrade'    :   false (default) | true;
 
-Used in combination with 'dynamic' mode to udgrade the cache because of any possible change
+Used in combination with 'dynamic' mode to upgrade the cache because of any possible change
 in the dependency of the previously created .oct files. The default value is false.
 
 @item 'debug'      :   false (default) | true
@@ -112,7 +112,8 @@ octave2oct ('my_function', 'outname', 'my_other_function')
 octave2oct ('my_function', 'outname', 'my_other_function',...
             'outdir', 'D:\oct', 'mode', 'dynamic',...
             'cache', 'D:\cache', 'upgrade', true, 'verbose', true)
-octave2oct ('', 'mode', 'dynamic', 'cache', 'D:\cache', 'upgrade', true)
+octave2oct ('', 'mode', 'dynamic', 'cache', 'D:\cache',...
+            'upgrade', true)
 @end example
 
 Some usage tips:
