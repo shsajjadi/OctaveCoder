@@ -1007,6 +1007,8 @@ namespace coder_compiler
             global_file = *cache_file;
 
             visited[global_file] = true;
+            
+            dependency_graph[current_file()].insert(global_file);
 
             for (const auto& var: global_file->local_functions)
               if (var.name() == sym_name)
