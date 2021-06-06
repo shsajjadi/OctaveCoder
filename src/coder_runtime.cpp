@@ -4492,6 +4492,14 @@ namespace coder
 
         retval = true;
       }
+    else if (elt.size()==1)
+      {
+        coder_value_list lst;
+
+        coder_lvalue ref = (*elt.begin())->lvalue (lst);
+
+        ref.define (octave_value ());
+      }
 
     return retval;
   }
