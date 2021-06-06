@@ -1717,11 +1717,14 @@ namespace coder
   class coder_value_list
   {
    public:
-    coder_value_list ()
+    coder_value_list (bool multiassign = false):
+    m_list (),
+    used_in_multiassign (multiassign)
     {
     }
 
-    coder_value_list (octave_idx_type n)
+    coder_value_list (octave_idx_type n, bool multiassign = false):
+    used_in_multiassign (multiassign)
     {
       m_list = Pool::alloc (n);
     }
@@ -1800,8 +1803,14 @@ namespace coder
       return m_list;
     }
 
+    bool is_multi_assigned () const
+    {
+      return used_in_multiassign;
+    }
+
   private:
     std::list<octave_value_list> m_list;
+    bool used_in_multiassign;
   };
 
   class coder_function_base
@@ -3905,7 +3914,7 @@ namespace coder
         n_blackhole += lvalue_list[i].is_black_hole();
       }
 
-    coder_value_list rhs_val1;
+    coder_value_list rhs_val1 (true);
 
     rhs->evaluate_n (rhs_val1, n_out , endkey);
 
@@ -4593,7 +4602,7 @@ namespace coder
           retval(i) = octave_value(sym->get_value(), true);
       }
 
-    if (n == 1 && retval(0).is_undefined ())
+    if (nargout == 1 && ! output.is_multi_assigned () && retval(0).is_undefined ())
       error_with_id ("Octave:undefined-function", "%s", "undefined value returned from function");
 
     output.append (std::move (retval1));
@@ -4604,11 +4613,9 @@ namespace coder
   {
     int len = ret_list.size();
 
-    coder_value_list retval1;
+    make_return_list(output, std::move(ret_list), nargout);
 
-    make_return_list(retval1, std::move(ret_list), nargout);
-
-    octave_value_list & retval = retval1.back ();
+    octave_value_list & retval = output.back ();
 
     Expression& ex = varout;
 
@@ -4635,8 +4642,6 @@ namespace coder
         for (int i = len; i < n; i++)
           retval(i) = vout(j++);
       }
-
-    output.append (std::move (retval1));
   }
 
   void
