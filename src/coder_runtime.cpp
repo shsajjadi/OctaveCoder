@@ -42,7 +42,11 @@ namespace coder
   typedef octave_value_list (*coder_method_meth) (octave::interpreter&,
                                      const octave_value_list&, int);
 
-    typedef void (*stateless_function) (coder_value_list&, const octave_value_list&, int);
+  typedef void (*stateless_function) (coder_value_list&, const octave_value_list&, int);
+
+  struct Symbol;
+
+  typedef const Symbol& (*function_maker) ();
 
   struct coder_value
   {
@@ -78,7 +82,7 @@ namespace coder
 
   octave_base_value* fcn2ov(coder_method_meth m);
 
-  octave_base_value* fcn2ov(stateless_function m);
+  octave_base_value* fcn2ov(stateless_function f);
 
   octave_base_value* stdfcntoov (std::function<void(coder_value_list&, const octave_value_list&,int)> fcn);
 
@@ -948,12 +952,15 @@ namespace coder
 
   struct Handle : Expression
   {
-    Handle(Ptr rhs, const char* nm) : op_rhs(rhs) ,name(nm){}
+    Handle(Ptr rhs, const char* nm) : op_rhs(rhs) ,name(nm), fmaker(nullptr){}
+
+    Handle(function_maker rhs, const char* nm) : op_rhs() ,name(nm), fmaker(rhs){}
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
 
     Ptr op_rhs;
     const char* name;
+    function_maker fmaker;
   };
 
   struct Anonymous : Expression
@@ -961,7 +968,6 @@ namespace coder
     Anonymous(octave_base_value* arg);
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
-
 
     coder_value value;
   };
@@ -4158,6 +4164,15 @@ namespace coder
   coder_value
   Handle::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
   {
+    if (fmaker)
+      {
+#if OCTAVE_MAJOR_VERSION >= 6
+        return coder_value(new octave_fcn_handle (octave_value(fmaker ().get_value(), true)));
+#else
+        return coder_value(new octave_fcn_handle (octave_value(fmaker ().get_value(), true), name));
+#endif
+      }
+
     auto rhs = op_rhs.get ();
 
     if (rhs.is_Symbol ())

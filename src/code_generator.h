@@ -328,5 +328,6 @@ namespace coder_compiler
 
     std::map <std::ostream*, IndentingOStreambuf> streams;
 
+    std::vector<symscope_ptr > fcn_scopes;
   };
 }

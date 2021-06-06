@@ -357,6 +357,8 @@ namespace coder_compiler
 
     increment_indent_level (os_src);
 
+    fcn_scopes.push_back (traversed_scopes.front()[1].front());
+
     declare_and_define_handle_variables();
 
     octave::tree_parameter_list *param_list = anon_fh.parameter_list ();
@@ -406,6 +408,8 @@ namespace coder_compiler
     decrement_indent_level (os_src);
 
     os_src << "}))";
+
+    fcn_scopes.pop_back ();
   }
 
   void
@@ -896,6 +900,8 @@ namespace coder_compiler
   void
   code_generator::visit_octave_user_function (octave_user_function& fcn)
   {
+    fcn_scopes.push_back (traversed_scopes.front()[0].front());
+
     std::streampos p1,p2;
 
     bool nested  = fcn.is_nested_function() ;
@@ -974,6 +980,8 @@ namespace coder_compiler
 
         os_src << "};\n";
       }
+
+    fcn_scopes.pop_back ();
   }
 
 
@@ -1675,14 +1683,25 @@ namespace coder_compiler
   void
   code_generator::visit_fcn_handle (octave::tree_fcn_handle&  fh )
   {
-    const auto& scope = traversed_scopes.front()[0].front();
+    const auto& scope = fcn_scopes.back ();
 
     auto idx = make_index_expression_from_fcn_handle (fh);
+
+    static const std::map<std::string,std::string> special_functions ({
+      {"nargin", "NARGIN"},
+      {"nargout", "NARGOUT"},
+      {"isargout", "ISARGOUT"},
+      {"narginchk", "NARGINCHK"},
+      {"nargoutchk", "NARGOUTCHK"}
+    });
 
     bool is_nested =
       scope->contains(fh.name(), symbol_type::nested_fcn)
       ||
       scope->lookup_in_parent_scopes(fh.name(), symbol_type::nested_fcn);
+
+    bool is_special_function =
+      special_functions.find(fh.name()) != special_functions.end ();
 
     if(is_nested)
       os_src
@@ -1695,12 +1714,33 @@ namespace coder_compiler
       idx->accept (*this);
     else
       {
+        if (! is_special_function && ! is_nested)
+          {
+            auto symbol = scope->contains(fh.name(), symbol_type::ordinary);
+
+            if (! (symbol && symbol->file))
+              symbol = scope->lookup_in_parent_scopes(fh.name(), symbol_type::ordinary);
+
+            if (symbol && symbol->file)
+              {
+                os_src
+                  << "&"
+                  << mangle(symbol->file->name)
+                  << symbol->file->id
+                  << "::";
+              }
+          }
+
         os_src
           << mangle(fh.name());
 
         if(is_nested)
           os_src
             << "make(true)";
+
+        if (! is_special_function && ! is_nested)
+          os_src
+            << "make";
       }
 
     os_src
@@ -2492,9 +2532,9 @@ namespace coder_compiler
   {
     delimiter sep;
 
-    const auto& scope = traversed_scopes.front()[1].front()->symbols();
+    const auto current_scope = traversed_scopes.front()[1].front();
 
-    const auto& current_scope = traversed_scopes.front()[1].front();
+    const auto& scope = current_scope->symbols();
 
     traversed_scopes.front()[1].pop_front();
 
