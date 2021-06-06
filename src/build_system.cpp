@@ -543,7 +543,7 @@ namespace coder_compiler
 
     auto generate = [&](const coder_file_ptr& file, bool iscyclic = false)->void
     {
-      if ( analyser.should_generate (file))
+      if ( mode == bm_single || analyser.should_generate (file))
         {
           std::string filename = mangle(lowercase(file->name)) + std::to_string(file->id);
 
