@@ -2354,6 +2354,40 @@ namespace coder_compiler
     return str + "_";
   }
 
+  static bool
+  is_system_fcn_file (octave_function* fcn)
+  {
+#if (OCTAVE_MAJOR_VERSION < 6 || (OCTAVE_MAJOR_VERSION == 6 && OCTAVE_MINOR_VERSION > 2) || OCTAVE_MAJOR_VERSION > 6)
+    return fcn->is_system_fcn_file ();
+#else
+    bool retval = false;
+
+    octave_user_function *ufn = nullptr;
+
+    std::string file_name;
+
+    if (fcn->is_user_function ())
+      ufn = fcn->user_function_value ();
+
+    if (ufn)
+      {
+        file_name = ufn->fcn_file_name ();
+      }
+
+    if (! file_name.empty ())
+      {
+        std::string ff_name = octave::fcn_file_in_path (file_name);
+
+        static const std::string fcn_file_dir = octave::sys::canonicalize_file_name (octave::config::fcn_file_dir ());
+
+        if (fcn_file_dir == ff_name.substr (0, fcn_file_dir.length ()))
+          retval = true;
+      }
+
+    return retval;
+#endif
+  }
+
   void
   code_generator::declare_and_define_variables()
   {
@@ -2387,7 +2421,7 @@ namespace coder_compiler
                 (
                   fcn
                   &&
-                  (symbol->fcn.is_builtin_function() || fcn->is_system_fcn_file())
+                  (symbol->fcn.is_builtin_function() || is_system_fcn_file(fcn))
                 )
                   {
                     os_src
@@ -2462,7 +2496,7 @@ namespace coder_compiler
                     (
                       fcn
                       &&
-                      (symbol->fcn.is_builtin_function() || fcn->is_system_fcn_file())
+                      (symbol->fcn.is_builtin_function() || is_system_fcn_file(fcn))
                       &&
                       ! (
                         current_scope->contains(symbol->name, symbol_type::nested_fcn)
@@ -2564,7 +2598,7 @@ namespace coder_compiler
                 (
                   fcn
                   &&
-                  (symbol->fcn.is_builtin_function() || fcn->is_system_fcn_file())
+                  (symbol->fcn.is_builtin_function() || is_system_fcn_file(fcn))
                 )
                   {
                     os_src
@@ -2637,7 +2671,7 @@ namespace coder_compiler
                     (
                       fcn
                       &&
-                      (symbol->fcn.is_builtin_function() || fcn->is_system_fcn_file())
+                      (symbol->fcn.is_builtin_function() || is_system_fcn_file(fcn))
                       &&
                       !(
                         current_scope->contains(symbol->name, symbol_type::nested_fcn)
