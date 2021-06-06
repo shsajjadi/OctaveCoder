@@ -2674,16 +2674,6 @@ namespace coder
   coder_lvalue
   Symbol::lvalue(coder_value_list& idx)
   {
-    if (reference != this)
-      {
-        octave_base_value* val = get_value();
-
-        if (!val->is_defined() || val->is_function())
-          {
-            (*this) = *reference;
-          }
-      }
-
     return coder_lvalue(get_value());
   }
 

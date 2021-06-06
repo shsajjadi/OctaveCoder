@@ -1,7 +1,9 @@
 #include  <bitset>
 #include  <memory>
 
+#include <octave/defaults.h>
 #include <octave/error.h>
+#include <octave/file-ops.h>
 #include <octave/input.h>
 #include <octave/oct.h>
 #include <octave/ov-fcn-handle.h>
@@ -266,7 +268,9 @@ namespace coder_compiler
     os_hdr_ext(header),
     os_src_ext(source),
     os_prt_ext(partial_source),
-    mode(mode)
+    mode(mode),
+    nesting_context(0),
+    nested_fcn_names()
   {
     streams.insert ({&os_hdr, IndentingOStreambuf(os_hdr, 2)});
 
@@ -278,45 +282,6 @@ namespace coder_compiler
   static std::string quote(const std::string& str)
   {
     return "\"" + str + "\"";
-  }
-
-  static std::string
-  remove_leading_indents (const std::string& str)
-  {
-    std::stringstream os (str);
-
-    std::vector<std::string> lines;
-
-    std::string result;
-
-    while (true)
-      {
-        std::string s;
-
-        std::getline (os, s);
-
-        if (! os)
-            break;
-
-        lines.push_back (std::move (s));
-      }
-
-    size_t len = result.max_size ();
-
-    for (const auto& l: lines)
-      {
-        size_t idx = l.find_first_not_of (' ');
-
-        if (idx != std::string::npos)
-          len = std::min (len, idx);
-      }
-
-    for (auto& l: lines)
-      {
-        result += l.erase (0, len) + "\n";
-      }
-
-    return result;
   }
 
   void code_generator::increment_indent_level (std::ostream& st)
@@ -902,24 +867,6 @@ namespace coder_compiler
   {
     fcn_scopes.push_back (traversed_scopes.front()[0].front());
 
-    std::streampos p1,p2;
-
-    bool nested  = fcn.is_nested_function() ;
-
-    if(nested)
-      {
-        declare_persistent_variables();
-
-        os_src
-          << "auto nested_fcn = [&](coder_value_list& output, const octave_value_list& args, int nargout)\n{\n";
-
-        release (os_src);
-
-        p1 = os_src.tellp();
-
-        increment_indent_level (os_src);
-      }
-
     visit_octave_user_function_header (fcn);
 
     octave::tree_statement_list *cmd_list = fcn.body ();
@@ -931,59 +878,8 @@ namespace coder_compiler
 
     visit_octave_user_function_trailer (fcn);
 
-    if(nested)
-      {
-        std::string fcn_body;
-
-        std::string tmp;
-
-        release (os_src);
-
-        p2 = os_src.tellp();
-
-        os_src.seekg(p1);
-
-        auto sz = p2 - p1 +1 ;
-
-        std::vector<char> buf(sz);
-
-        os_src.read (buf.data (), sz - 1);
-
-        decrement_indent_level (os_src);
-
-        os_src
-          << "};\n";
-
-        os_src
-          << "auto nested_hdl = [=](coder_value_list& output, const octave_value_list& args, int nargout) mutable \n{\n";
-
-        increment_indent_level (os_src);
-
-        os_src
-          << mangle(fcn.name ())
-          << " = Symbol (fcn2ov([&] (coder_value_list& output, const octave_value_list& args, int nargout)\n{\n";
-
-        increment_indent_level (os_src);
-
-        os_src
-          << remove_leading_indents (buf.data ());
-
-        decrement_indent_level (os_src);
-
-        os_src
-          << "}));\n"
-          << "return "
-          << mangle(fcn.name ())
-          << ".call (output, nargout, args);\n";
-
-        decrement_indent_level (os_src);
-
-        os_src << "};\n";
-      }
-
     fcn_scopes.pop_back ();
   }
-
 
   void
   code_generator::visit_octave_user_function_header (octave_user_function& fcn)
@@ -997,7 +893,13 @@ namespace coder_compiler
 
     bool nested  = fcn.is_nested_function() ;
 
-    if (!nested)
+    if(nested )
+      {
+        declare_persistent_variables();
+
+        declare_and_define_nested_variables();
+      }
+    else
       {
         os_src
           << "Symbol (fcn2ov(["
@@ -1005,10 +907,39 @@ namespace coder_compiler
 
         increment_indent_level (os_src);
 
-        declare_persistent_variables();
-      }
+        if (nesting_context == 1)
+          {
 
-    declare_and_define_variables();
+            os_src
+              << "Symbol "
+              << nested_fcn_names.back()
+              << ";\n";
+
+            os_src
+              << "auto nested_fcn = ["
+              << nested_fcn_names.back()
+              << "](coder_value_list& output, const octave_value_list& args, int nargout) mutable\n{\n";
+
+            increment_indent_level (os_src);
+
+            os_src
+              << "auto "
+              << nested_fcn_names.back()
+              << "make = [&]()\n{\n";
+
+            increment_indent_level (os_src);
+
+            declare_persistent_variables();
+
+            declare_and_define_nested_variables();
+          }
+        else
+          {
+            declare_persistent_variables();
+
+            declare_and_define_variables();
+          }
+      }
 
     std::string pers =  init_persistent_variables();
 
@@ -1091,7 +1022,46 @@ namespace coder_compiler
 
     decrement_indent_level (os_src);
 
-    if(!nested)
+    if (nested || nesting_context == 1)
+      {
+        decrement_indent_level (os_src);
+
+        os_src
+          << "};\n";
+
+        if (nesting_context == 1)
+          os_src
+            << "return Symbol(fcn2ov("
+            << "nested_fcn"
+            << "));\n";
+      }
+
+    if (nesting_context == 1)
+      {
+        decrement_indent_level (os_src);
+
+        os_src << "};\n";
+
+        os_src
+          << nested_fcn_names.back()
+          << " = "
+          << nested_fcn_names.back()
+          << "make ();\n";
+        os_src
+          << "return "
+          << nested_fcn_names.back()
+          << ".call (output, nargout, args);\n";
+
+        decrement_indent_level (os_src);
+
+        os_src << "};\n";
+
+        os_src
+          << "return "
+          << "nested_fcn (output, args, nargout);\n";
+      }
+
+    if (! nested)
       {
         decrement_indent_level (os_src);
 
@@ -2561,6 +2531,288 @@ namespace coder_compiler
       }
   }
 
+  code_generator::declare_and_define_nested_variables()
+  {
+    delimiter sep;
+
+    const auto& scope = traversed_scopes.front()[0].front()->symbols();
+
+    static const std::map<std::string,std::string> special_functions ({
+      {"nargin", "NARGIN"},
+      {"nargout", "NARGOUT"},
+      {"isargout", "ISARGOUT"},
+      {"narginchk", "NARGINCHK"},
+      {"nargoutchk", "NARGOUTCHK"}
+    });
+
+    std::stringstream ss_names;
+
+    std::stringstream ss_nested;
+
+    std::stringstream ss_special_name;
+
+    std::stringstream ss_special_macro;
+
+    std::stringstream ss_fcnmake;
+
+    std::string ordinary_names;
+
+    std::string special_names;
+
+    std::string nested_names;
+
+    ss_names << sep();
+
+    for(const auto& symbol : scope[(int)symbol_type::ordinary])
+      {
+        os_src
+          << "Symbol "
+          << mangle(symbol->name) ;
+
+        ss_names << sep(", ") << mangle(symbol->name);
+
+        auto f = special_functions.find(symbol->name);
+
+        if (f != special_functions.end())
+          {
+            if (symbol->fcn.is_function())
+              {
+                octave_function* fcn = symbol->fcn.function_value(true);
+
+                if
+                (
+                  fcn
+                  &&
+                  (symbol->fcn.is_builtin_function() || is_system_fcn_file(fcn))
+                )
+                  {
+                  }
+                else if (symbol->file )
+                  {
+                    os_src
+                      << " = ";
+
+                    os_src
+                      << mangle(symbol->file->name)
+                      << symbol->file->id;
+
+                    os_src
+                      << "::"
+                      << mangle(symbol->name)
+                      << "make()";
+                  }
+              }
+          }
+        else if (symbol->file )
+          {
+            os_src
+              << " = ";
+
+            os_src
+              << mangle(symbol->file->name)
+              << symbol->file->id;
+
+            os_src
+              << "::"
+              << mangle(symbol->name)
+              << "make()";
+          }
+
+        os_src << ";\n";
+      }
+
+    const auto& nested_vars = scope[(int)symbol_type::inherited];
+
+    if (!nested_vars.empty())
+      {
+        ss_nested << sep();
+
+        ss_special_name << sep();
+
+        ss_special_macro << sep();
+
+        for(const auto& symbol : nested_vars)
+          {
+            bool is_special = true;
+
+            auto f = special_functions.find(symbol->name);
+
+            if (f != special_functions.end())
+              {
+                if (symbol->fcn.is_function())
+                  {
+                    octave_function* fcn = symbol->fcn.function_value(true);
+
+                    const auto& current_scope = traversed_scopes.front()[0].front();
+
+                    if
+                    (
+                      fcn
+                      &&
+                      (symbol->fcn.is_builtin_function() || is_system_fcn_file(fcn))
+                      &&
+                      ! (
+                        current_scope->contains(symbol->name, symbol_type::nested_fcn)
+                        ||
+                        current_scope->lookup_in_parent_scopes(symbol->name, symbol_type::nested_fcn)
+                      )
+                    )
+                      {
+                        ss_special_name << sep(", ")  << mangle(f->first);
+
+                        ss_special_macro << sep(", ") << f->second;
+                      }
+                    else
+                      is_special = false;
+                  }
+              }
+            else
+              is_special = false;
+
+            if(! is_special)
+              ss_nested
+                <<  sep(", ")
+                << mangle(symbol->name);
+          }
+
+        special_names = ss_special_name.str();
+
+        if (! special_names.empty())
+          os_src
+            << "Ptr special_name_rhs[] = {"
+            << special_names
+            << "};\n"
+
+            << "Symbol "
+            << special_names
+            << ";\n";
+
+        nested_names = ss_nested.str();
+
+        if (! nested_names.empty())
+          os_src
+            << "Ptr nes_rhs[] = {"
+            << nested_names
+            << "};\n"
+
+            << "Symbol "
+            << nested_names
+            << ";\n";
+      }
+
+    ordinary_names = ss_names.str();
+
+    ss_fcnmake << sep ();
+
+    const auto& nested_fcns = scope[(int)symbol_type::nested_fcn];
+
+    if (! nested_fcns.empty())
+      {
+        for (const auto& symbol: nested_fcns)
+          {
+            ss_fcnmake
+              << sep(", ")
+              << mangle (symbol->name)
+              << "make";
+          }
+
+        if (nesting_context > 0)
+          os_src
+            << "std::function <Symbol(bool)> "
+            << ss_fcnmake.str ()
+            << ";\n";
+      }
+
+    os_src
+      << "auto nested_fcn = [&";
+
+    if (nesting_context > 1 && nested_fcn_names.size()>=2)
+      os_src
+        << ", "
+        << nested_fcn_names[nested_fcn_names.size() - 2];
+
+    if (! nested_fcns.empty())
+      os_src
+        << ", "
+        << ss_fcnmake.str ();
+
+    if (! ordinary_names.empty ())
+      {
+        os_src
+          << ", "
+          << ordinary_names;
+
+      }
+
+    if (! special_names.empty ())
+      {
+        os_src
+          << ", "
+          << special_names
+          << ", "
+          << "special_name_rhs";
+      }
+
+    if (! nested_names.empty ())
+      {
+        os_src
+          << ", "
+          << nested_names
+          << ", "
+          << "nes_rhs";
+      }
+
+    os_src
+      << "](coder_value_list& output, const octave_value_list& args, int nargout) mutable\n{\n";
+
+    increment_indent_level (os_src);
+
+    if (! special_names.empty())
+      os_src
+        << "Ptr special_name_lhs[] = {"
+        << special_names
+        << "};\n"
+
+        << "AssignByRefCon(special_name_lhs, special_name_rhs, {"
+        << ss_special_macro.str()
+        << "});\n";
+
+    if (! nested_names.empty())
+      os_src
+        << "Ptr nes_lhs[] = {"
+        << nested_names
+        << "};\n"
+        << "AssignByRef(nes_lhs, nes_rhs);\n";
+
+
+    for(const auto& symbol : scope[(int)symbol_type::ordinary])
+      {
+        auto f = special_functions.find(symbol->name);
+
+        if (f != special_functions.end())
+          {
+            if (symbol->fcn.is_function())
+              {
+                octave_function* fcn = symbol->fcn.function_value(true);
+
+                if
+                (
+                  fcn
+                  &&
+                  (symbol->fcn.is_builtin_function() || is_system_fcn_file(fcn))
+                )
+                  {
+                    os_src
+                      << mangle(symbol->name)
+                      << " = "
+                      << f->second
+                      << ";\n";
+                  }
+              }
+          }
+      }
+  }
+
   void
   code_generator::declare_and_define_handle_variables()
   {
@@ -2687,7 +2939,6 @@ namespace coder_compiler
                     else
                       is_special = false;
                   }
-
               }
             else
               is_special = false;
@@ -2740,32 +2991,6 @@ namespace coder_compiler
   void
   code_generator::define_nested_functions(octave_user_function& fcnn)
   {
-    delimiter sep;
-
-    if (!fcnn.subfunctions().empty())
-      {
-        for (const auto& sub: fcnn.subfunctions())
-          {
-            const auto& nm = sub.first;
-
-            const auto& f = sub.second;
-
-            octave_function *fcn = f.function_value (true);
-
-            if (fcn && fcn->is_user_function())
-              {
-                octave_user_function& ufc = *(fcn->user_function_value());
-
-                if (ufc.is_nested_function())
-                  {
-                    os_src << "std::function <Symbol(bool)> "
-                      << mangle(nm)
-                      << "make;\n";
-                  }
-              }
-          }
-      }
-
     for (const auto& sub: fcnn.subfunctions())
       {
         const auto& nm = sub.first;
@@ -2792,7 +3017,15 @@ namespace coder_compiler
 
                 increment_indent_level (os_src);
 
+                nested_fcn_names.push_back (mangled_name);
+
+                nesting_context ++;
+
                 ufc.accept(*this);
+
+                nesting_context --;
+
+                nested_fcn_names.pop_back ();
 
                 os_src
                   << "if (is_handle)" ;
@@ -2819,11 +3052,6 @@ namespace coder_compiler
                   << ");\n";
 
                 decrement_indent_level (os_src);
-
-                os_src
-                  << "return Symbol(fcn2ov("
-                  << "nested_hdl"
-                  << "));\n";
 
                 decrement_indent_level (os_src);
 
@@ -2852,6 +3080,7 @@ namespace coder_compiler
           }
       }
   }
+
   std::string
   code_generator::init_persistent_variables()
   {
@@ -3044,6 +3273,28 @@ namespace coder_compiler
     os_prt << "}\n";
   }
 
+  bool code_generator::has_nested_function(octave_user_function& ufcn)
+  {
+    for (const auto& sub: ufcn.subfunctions())
+      {
+        const auto& f = sub.second;
+
+        octave_function *fcn = f.function_value (true);
+
+        if (fcn && fcn->is_user_function())
+          {
+            octave_user_function& ufc = *(fcn->user_function_value());
+
+            if (ufc.is_nested_function())
+              {
+                return true;
+              }
+          }
+      }
+
+    return false;
+  }
+
   void
   code_generator::generate_full_source( )
   {
@@ -3153,7 +3404,23 @@ namespace coder_compiler
           {
             octave_user_function *fcn = m_file->fcn.user_function_value (true);
 
+            bool has_nested = has_nested_function (*fcn);
+
+            nesting_context += has_nested;
+
+            if (has_nested)
+              {
+                nested_fcn_names.push_back (mangle(m_file->name));
+              }
+
             fcn->accept(*this);
+
+            if (has_nested)
+              {
+                nested_fcn_names.pop_back ();
+              }
+
+            nesting_context -= has_nested;
           }
         else
           {
@@ -3178,6 +3445,7 @@ namespace coder_compiler
                 os_src << "file_type::classdef";
               }
           }
+
         os_src
           << ");\nreturn "
           << mangle(m_file->name) ;
@@ -3203,6 +3471,12 @@ namespace coder_compiler
 
                   if (!ufc.is_nested_function() && !ufc.is_private_function())
                     {
+                      bool has_nested = has_nested_function (ufc);
+
+                      nesting_context += has_nested;
+
+                      if (has_nested)nested_fcn_names.push_back (mangle(nm));
+
                       traversed_scopes.pop_front();
 
                       os_src
@@ -3231,6 +3505,10 @@ namespace coder_compiler
                       decrement_indent_level (os_src);
 
                       os_src << "}\n";
+
+                      if (has_nested) nested_fcn_names.pop_back ();
+
+                      nesting_context -= has_nested;
                     }
                 }
             }

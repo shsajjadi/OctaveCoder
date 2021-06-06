@@ -262,6 +262,9 @@ namespace coder_compiler
     declare_and_define_variables();
 
     void
+    declare_and_define_nested_variables();
+
+    void
     declare_and_define_handle_variables();
 
     void
@@ -284,6 +287,9 @@ namespace coder_compiler
 
     void
     generate_full_source( );
+
+    bool
+    has_nested_function(octave_user_function& ufcn);
 
     void
     generate_builtin_header();
@@ -327,6 +333,10 @@ namespace coder_compiler
     generation_mode mode;
 
     std::map <std::ostream*, IndentingOStreambuf> streams;
+
+    int nesting_context;
+
+    std::vector<std::string> nested_fcn_names;
 
     std::vector<symscope_ptr > fcn_scopes;
   };
