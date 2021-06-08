@@ -3199,7 +3199,7 @@ namespace coder_compiler
               {
                 octave_user_function& ufc = *(fcn->user_function_value());
 
-                if (!ufc.is_nested_function() && !ufc.is_private_function())
+                if (!ufc.is_nested_function())
                   {
                     os_hdr
                       << "const Symbol& "
@@ -3259,7 +3259,7 @@ namespace coder_compiler
           {
             octave_user_function& ufc = *(fcn->user_function_value());
 
-            if (!ufc.is_nested_function() && !ufc.is_private_function())
+            if (!ufc.is_nested_function())
             {
               os_prt
                 << "const Symbol& "
@@ -3470,7 +3470,7 @@ namespace coder_compiler
                 {
                   octave_user_function& ufc = *(fcn->user_function_value());
 
-                  if (!ufc.is_nested_function() && !ufc.is_private_function())
+                  if (!ufc.is_nested_function())
                     {
                       bool has_nested = has_nested_function (ufc);
 

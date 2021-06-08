@@ -407,7 +407,7 @@ namespace coder_compiler
           {
             octave_user_function& ufc = *(fcn->user_function_value());
 
-            if (!ufc.is_nested_function() && !ufc.is_private_function())
+            if (!ufc.is_nested_function())
               {
                 current_file()->add_new_local_function(nm);
 
@@ -508,7 +508,7 @@ namespace coder_compiler
                   {
                     octave_user_function& ufc = *(fcn->user_function_value());
 
-                    if (!ufc.is_nested_function() && !ufc.is_private_function())
+                    if (!ufc.is_nested_function())
                       {
                         local_functions.insert(sub);
                       }
