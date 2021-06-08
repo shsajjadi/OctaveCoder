@@ -2531,6 +2531,7 @@ namespace coder_compiler
       }
   }
 
+  void
   code_generator::declare_and_define_nested_variables()
   {
     delimiter sep;
