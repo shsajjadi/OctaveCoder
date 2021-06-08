@@ -50,7 +50,7 @@ The build system can operate in three modes:
 @table @code
 @item  single
 In the 'single' mode the generated c++ code of a function
-and all of its dependencies is placed in a single file.
+and all of its dependencies are placed in a single file.
 The file then compiled to a .oct file. It is the default mode.
 
 @item  static
@@ -60,7 +60,7 @@ then combined and linked into a .oct file.
 
 @item  dynamic
 In the 'dynamic' mode each .m file is translated to a separate .cpp file.
-The .cpp files are compiled to object modules. Each of object files is linked
+The .cpp files are compiled to object modules. Each object file is linked
 as a separate shared library (.dll/.so/.dylib) and the final .oct file is
 linked against those shared libraries.
 @end table
