@@ -11,10 +11,10 @@ All versions of GNU Octave starting from 4.4.0 are supported. Coder supports com
 The name and symbol resolution is done at translation time so the workspace and scope of a compiled function cannot be changed/queried dynamically. Because of that, if a compiled .oct file calls functions such as "eval", "evalin", "assignin", "who" , "whos", "exist" and "clear" that dynamically change / query the workspace, they are evaluated in the workspace that the generated .oct file is called from. Moreover Adding a path to Octave's path, loading packages and autoload functions and changing the current folder via "cd" should be done before the start of the compilation. Doing so helps compiler to correctly find and resolve symbols.
 
 ### How does it work?
-Octave instructions, are translated to the intermediate Coder C++ API. The the intermediate API as its backend uses the high level oct API and links against Octave core libraries. Names and symbols are resolved at translation time to get rid of symbol table lookup at the runtime and there is no AST traversal so the generated .oct files are supposed to run faster than the original .m files. Speed-up is usually 3X - 4X relative to the interpreter.
+Octave instructions, are translated to the intermediate Coder C++ API. The intermediate API as its backend uses the high level oct API and links against Octave core libraries. Names and symbols are resolved at translation time to get rid of symbol table lookup at the runtime and there is no AST traversal so the generated .oct files are supposed to run faster than the original .m files. Speed-up is usually 3X - 4X relative to the interpreter.
 
 ### Build system
-Coder's build system supports three modes of building: single, static and dynamic. In the "single" mode the generated c++ code of a function and all of its dependencies are combined in a single file. The file then compiled to a .oct file. In the "static" and "dynamic" modes each .m file is translated to a separate .cpp file. The .cpp files are compiled to separate object modules. In the "static" mode the compiled object files are combined and linked into a .oct file but in the "dynamic" mode each of object file is linked as a separate shared library (.dll/.so/.dylib) and the final .oct file is linked against those shared libraries.
+Coder's build system supports three modes of building: single, static and dynamic. In the "single" mode the generated c++ code of a function and all of its dependencies are combined in a single file. The file then compiled to a .oct file. In the "static" and "dynamic" modes each .m file is translated to a separate .cpp file. The .cpp files are compiled to separate object modules. In the "static" mode the compiled object files are combined and linked into a .oct file but in the "dynamic" mode each object file is linked as a separate shared library (.dll/.so/.dylib) and the final .oct file is linked against those shared libraries.
 
 The default build mode is the "single" mode. However sometimes because of the large number of dependencies the generated source in "single" mode may contain thousands lines of code that increases the compilation time. In the cases that the compiler is frequently used it is preferable to use "dynamic" and or "static" modes because all of the generated intermediate files are placed in a cache to be used in the later compilation tasks. Moreover there are cases that a user compiles a file and after that they want to modify the original .m file or they want to shadow a function with a new function that has the same name. The build system can handle such changes. In each compilation task all dependencies of the currently compiled .oct file are upgraded and cached but the dependency of the already compiled .oct files in the "static" mode aren't upgraded so they should be recompiled. But in the "dynamic" mode there is an option to upgrade the dependency of the already compiled .oct files.
 
@@ -25,14 +25,14 @@ Previously new branches were created per each Octave release but currently there
 
 ### Installing
 
-Similar to other Octave packages download the proper *.tar.gz released package and in Octave use `pkg` command to install and load the package:
+Similar to other Octave packages download the latest *.tar.gz released package and in Octave use `pkg` command to install and load the package:
 
     > pkg install coder-4.4.0.tar.gz
     > pkg load coder
 
 ### License
 
-Coder is released under GNU GPL v3.0. The generated source are treated as data files but since they are linked against octave libraries they will get GNU GPL license.
+Coder is released under GNU GPL v3.0. The generated sources are treated as data files but since they are linked against octave libraries they will get GNU GPL license.
 
 ### Usage
 
@@ -50,7 +50,7 @@ The following pairs of options and values are accepted:
 
 - 'outname'    :   same as NAME (default)
 
-The name of the generated .oct file. By default it is get the value of NAME. It is recommended to use other names to avoid shadowing of functions. It can be a character string or a cell array of character strings. If NAME is a cell array, 'outname' should also be a cell array.
+The name of the generated .oct file. By default it gets the value of NAME. It is recommended to use other names to avoid shadowing of functions. It can be a character string or a cell array of character strings. If NAME is a cell array, 'outname' should also be a cell array.
 
 - 'outdir'     :   current folder (default)
 
@@ -67,12 +67,12 @@ In the "single" mode the generated c++ code of a function and all of its depende
 In the "static" each .m file is translated to a separate .cpp file. The .cpp files are compiled to separate object modules. The compiled object files are then combined and linked into a .oct file.
 
 3. 'dynamic'
-In the "dynamic" mode each .m file is translated to a separate .cpp file. The .cpp files are compiled to separate object modules. Each of object files is linked as a separate shared library (.dll/.so/.dylib) and the final .oct file is linked against those shared libraries.
+In the "dynamic" mode each .m file is translated to a separate .cpp file. The .cpp files are compiled to separate object modules. Each object file is linked as a separate shared library (.dll/.so/.dylib) and the final .oct file is linked against those shared libraries.
 
 
 - 'cache'   
 
-When 'static' or 'dynamic' are used as the build mode, a 'cache' directory name should be provided. It can be used in the subsequent compilation tasks to speed up the compilation time. Five sub-directories is created in the cache : include, src, lib, bin and tmp. If the compilation is done in 'dynamic' mode the 'bin' sub-directory should be added to the system's 'PATH' ( Windows) or 'LD_LIBRARY_PATH'  ( Linux )  or 'DYLD_LIBRARY_PATH' ( Mac OS ) environment variable before the startup of Octave, otherwise a restart is required. The bin sub-directory contains the required shared libraries that are used by the generated .oct file.
+When 'static' or 'dynamic' are used as the build mode, a 'cache' directory name should be provided. It can be used in the subsequent compilation tasks to speed up the compilation time. Five sub-directories are created in the cache : include, src, lib, bin and tmp. If the compilation is done in 'dynamic' mode the 'bin' sub-directory should be added to the system's 'PATH' ( Windows) or 'LD_LIBRARY_PATH'  ( Linux )  or 'DYLD_LIBRARY_PATH' ( Mac OS ) environment variable before the startup of Octave, otherwise a restart is required. The bin sub-directory contains the required shared libraries that are used by the generated .oct file.
 
 - 'upgrade'    :   false (default) | true;
 
@@ -89,10 +89,6 @@ By default the debug symbols aren't preserved. Also the linked libraries are str
 - 'verbose' :   false (default) | true
 
 Prints process of compilation.
-
-- 'KeepSource' :   false (default) | true
-
-When a .oct file is generated a .cc and a .o file are also created in the same directory as the .oct file. By default they are deleted after the creation of .oct file. If 'KeepSource' is set to true they aren't deleted.
 
 - 'CompilerOptions' 
 
