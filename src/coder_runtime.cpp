@@ -2133,7 +2133,7 @@ namespace coder
         octave_value tmp(*m_sym);
 
         if (tmp.is_function ())
-          temp = octave_value ();
+          tmp = octave_value ();
 
         if (m_idx.empty ())
           tmp.assign ((octave_value::assign_op)op, rhs);
