@@ -1,3 +1,14 @@
+coder 1.6.3 - 2021-07-15
+---------------------
+
+* More correct and complete implementation of handle to nested function
+* Handle to function can be taken from within the function body
+* Fix error in presence of global variables in dynamic mode
+* Fix unresolved variables due to problems in is_system_fcn_file of octave 6.1
+* More correct handling of undefined and unassigned function return values
+* Fix error when providing cell array of function names in single mode
+* Fix code generation of subfunctions of private functions
+
 coder 1.5.0 - 2020-12-11
 ---------------------
 
