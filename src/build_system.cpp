@@ -571,6 +571,19 @@ namespace coder_compiler
         }
     };
 
+    struct unwind
+    {
+      unwind (std::function<void ()> fcn) : m_fcn (std::move (fcn))
+      {}
+
+      ~unwind ()
+      {
+        m_fcn ();
+      }
+
+      std::function<void ()> m_fcn;
+    };
+
     auto init = [&]()
     {
       std::string filename = "coder";
@@ -636,13 +649,13 @@ namespace coder_compiler
         {
           Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
 
+          unwind unw ([&](){Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
+
           call_mkoctfile (
             ovl(
             octave_value(quote(obj)),
             octave_value("-Wl,--output," + quote(bin) + strpl)
             ));
-
-          Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS) ));
         }
     };
 
@@ -717,12 +730,12 @@ namespace coder_compiler
 
           Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
 
+          unwind unw ([&](){Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
+
           call_mkoctfile (
             ovl( octave_value (quote(tmpobj)),
             octave_value("-Wl,--output," + quote(bin) + strpl)
             ) );
-
-          Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS) ));
 
           return true;
         }
@@ -764,6 +777,8 @@ namespace coder_compiler
 
           Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
 
+          unwind unw ([&](){Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
+
           call_mkoctfile (
             ovl(
             octave_value("-Wl,-o," + quote(bin) + strpl),
@@ -771,8 +786,6 @@ namespace coder_compiler
             octave_value(quote("-L" + bindir))
             ).append (dep_names)
           );
-
-          Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS) ));
         }
     };
 
@@ -845,13 +858,13 @@ namespace coder_compiler
 
       Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
 
+      unwind unw ([&](){Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
+
       call_mkoctfile (
         ovl(octave_value("-Wl,-o," + quote(bin)+ strpl),
         octave_value(quote(obj)),
         octave_value(quote("-L" + bindir))
         ).append (dep_names));
-
-      Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS) ));
     };
 
     auto mkoctfile = [&](const coder_file_ptr& file,
