@@ -2285,7 +2285,7 @@ namespace coder
 
     if (indexed_object->isobject ())
       {
-        coder_value_list args(3);
+        coder_value_list args{octave_idx_type(3)};
 
         args(2) = num_indices;
 
@@ -2587,7 +2587,7 @@ namespace coder
               {
                 coder_value_list result;
 
-                coder_value_list first_args (0);
+                coder_value_list first_args {octave_idx_type(0)};
 
                 generated_fcn->call (result, nargout, first_args.back () );
 
@@ -2606,7 +2606,7 @@ namespace coder
               {
                 octave::tree_evaluator& ev = octave::interpreter::the_interpreter () -> get_evaluator ();
 
-                coder_value_list first_args {0};
+                coder_value_list first_args {octave_idx_type(0)};
 
                 octave_value_list retlist =  fcn->call (ev, nargout, first_args.back ());
 
@@ -2650,7 +2650,7 @@ namespace coder
 
             if (generated_fcn)
               {
-                coder_value_list first_args (0);
+                coder_value_list first_args {octave_idx_type(0)};
 
                 generated_fcn->call (output, nargout, first_args.back ());
               }
@@ -2658,7 +2658,7 @@ namespace coder
               {
                 octave::tree_evaluator& ev = octave::interpreter::the_interpreter () -> get_evaluator ();
 
-                coder_value_list args (0);
+                coder_value_list args {octave_idx_type(0)};
 
                 output.append (fcn->call (ev, nargout, args.back ()));
               }
@@ -2710,7 +2710,7 @@ namespace coder
   {
     const int len = arg_list.size ();
 
-    coder_value_list result_list (len);
+    coder_value_list result_list {octave_idx_type(len)};
 
     octave_value_list& args  = result_list.back ();
 
@@ -2764,7 +2764,7 @@ namespace coder
 
     if (nel != len || contains_cs_list)
       {
-        coder_value_list new_result (nel);
+        coder_value_list new_result {octave_idx_type(nel)};
 
         octave_idx_type s = 0;
 
@@ -2804,7 +2804,7 @@ namespace coder
         return convert_to_const_vector (m_args ,endkey);
       }
 
-    return coder_value_list (0);
+    return coder_value_list {octave_idx_type(0)};
   }
 
   octave_value
@@ -2895,7 +2895,7 @@ namespace coder
                       }
                     else
                       {
-                        first_args.append (coder_value_list(0));
+                        first_args.append (coder_value_list{octave_idx_type(0)});
                       }
 
                     generated_fcn->call (retval, nargout, first_args.back () );
@@ -2908,7 +2908,7 @@ namespace coder
                       }
                     else
                       {
-                        first_args.append (coder_value_list (0));
+                        first_args.append (coder_value_list {octave_idx_type(0)});
                       }
 
                     try
@@ -3077,7 +3077,7 @@ namespace coder
 
         if (fcn)
           {
-            coder_value_list final_args (0);
+            coder_value_list final_args {octave_idx_type(0)};
 
             if (! idx.empty ())
               {
@@ -3963,7 +3963,7 @@ namespace coder
                   }
                 else
                   {
-                    retval.append (coder_value_list (0));
+                    retval.append (coder_value_list {octave_idx_type(0)});
                   }
               }
 
@@ -3980,7 +3980,7 @@ namespace coder
 
     if (nargout_retval < n)
       {
-        retval.append (coder_value_list(nargout_retval));
+        retval.append (coder_value_list{octave_idx_type(nargout_retval)});
       }
 
     for (int ii = 0 ; ii < l_sz; ii++)
@@ -4253,7 +4253,7 @@ namespace coder
 
                 auto n = args.length ();
 
-                coder_value_list second_arg (n);
+                coder_value_list second_arg {octave_idx_type(n)};
 
                 for (octave_idx_type i = 0; i < n; i++)
                   second_arg(i) = args (i);
@@ -4576,14 +4576,14 @@ namespace coder
   {
     if(ret_list.size() == 0)
       {
-        output.append (coder_value_list (0));
+        output.append (coder_value_list {octave_idx_type(0)});
 
         return;
       }
 
     int n_retval = std::max(nargout,1);
 
-    coder_value_list retval1 (nargout);
+    coder_value_list retval1 {octave_idx_type(nargout)};
 
     octave_value_list & retval = retval1.back ();
 
@@ -4656,7 +4656,7 @@ namespace coder
 
     if (! val->is_defined ())
       {
-        output.append (coder_value_list (0));
+        output.append (coder_value_list {octave_idx_type(0)});
 
         return;
       }
@@ -4670,7 +4670,7 @@ namespace coder
   void
   make_return_list(coder_value_list& output)
   {
-    output.append (coder_value_list (0));
+    output.append (coder_value_list {octave_idx_type(0)});
   }
 
   void
@@ -4682,7 +4682,7 @@ namespace coder
   void
   make_return_val (coder_value_list& output)
   {
-    output.append (coder_value_list (0));
+    output.append (coder_value_list {octave_idx_type(0)});
   }
 
   void SetEmpty(Symbol& id)
@@ -4720,7 +4720,7 @@ namespace coder
 #else
         Ffeval (ovl (octave_value ("help"), octave_value ("narginchk")), 0);
 #endif
-        output.append (coder_value_list (0));
+        output.append (coder_value_list {octave_idx_type(0)});
       }
 
     octave_value minargs = arg(0);
@@ -4742,7 +4742,7 @@ namespace coder
     else if (nargin > maxargs.idx_type_value ())
       error ("narginchk: too many input arguments");
 
-    output.append (coder_value_list (0));
+    output.append (coder_value_list {octave_idx_type(0)});
   }
 
   void
