@@ -10,6 +10,7 @@
 #include <octave/ov-usr-fcn.h>
 #include <octave/pt-all.h>
 #include <octave/utils.h>
+#include <octave/version.h>
 
 #include "code_generator.h"
 #include "coder_file.h"
@@ -3591,6 +3592,12 @@ namespace coder_compiler
 
     for(octave_idx_type i = 0; i < n; ++i)
       {
+        if (bif(i) == "__init_qt__")
+          continue;
+
+        if (bif(i) == "__shutdown_qt__")
+          continue;
+
         if(!(bif(i).size() > 5 && bif(i).substr(0,5) == "meta."))
           {
             os_hdr
@@ -3655,6 +3662,11 @@ namespace coder_compiler
 
     for (octave_idx_type i = 0; i < n; ++i)
       {
+        if (bif(i) == "__init_qt__")
+          continue;
+
+        if (bif(i) == "__shutdown_qt__")
+          continue;
 
         if (! (bif(i).size() > 5 && bif(i).substr(0,5) == "meta."))
           {
