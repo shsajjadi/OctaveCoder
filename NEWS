@@ -1,3 +1,9 @@
+coder 1.6.4 - 2021-09-22
+---------------------
+
+* Fix error related to initialization of coder_value_list
+* Fix init_qt and shutdown_qt errors in octave-gui pre 6 releases
+
 coder 1.6.3 - 2021-07-15
 ---------------------
 
