@@ -32,10 +32,7 @@ jobs:
                  
       - name: Install coder
         run: octave-6.3.0-w64\mingw64\bin\octave.bat --eval "pre_install;"
-        
-      - name: echo installation cmd 
-        run: type diary
-        
+                
       - name: copy coder
         run: copy src\octave2oct.oct octave2oct.oct
         
