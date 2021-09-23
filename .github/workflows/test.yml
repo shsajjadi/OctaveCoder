@@ -31,7 +31,10 @@ jobs:
         run: 7z x octave-6.3.0-w64.7z
                  
       - name: Install coder
-        run: octave-6.3.0-w64\octave.vbs --eval "pre_install"
+        run: octave-6.3.0-w64\octave.vbs --eval "diary on;pre_install;diary off;"
+        
+      - name: echo installation cmd 
+        run: type diary
         
       - name: copy coder
         run: copy src\octave2oct.oct octave2oct.oct
