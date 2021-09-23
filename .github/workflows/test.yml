@@ -21,21 +21,31 @@ jobs:
       - uses: actions/checkout@v2
 
       # Runs a single command using the runners shell
-     # - name: Download Octave
-     #   run: Invoke-WebRequest https://ftp.gnu.org/gnu/octave/windows/octave-6.3.0-w64.7z -O octave-6.3.0-w64.7z
+      - name: Download Octave
+        run: Invoke-WebRequest https://ftp.gnu.org/gnu/octave/windows/octave-6.3.0-w64.7z -O octave-6.3.0-w64.7z
 
-
-      # Runs a single command using the runners shell
-      - name: Download test
-        run: Invoke-WebRequest https://ftp.gnu.org/gnu/octave/windows/octave-6.3.0-w64.7z.sig -O octave-6.3.0-w64.7z.sig
-      
       - name: list files
         run: dir
       
-      #- name: Extract Octave
-       # run: 7z x octave-6.3.0-w64.7z
+      - name: Extract Octave
+        run: 7z x octave-6.3.0-w64.7z
+                 
+      - name: Install coder
+        run: octave-6.3.0-w64\octave.vbs --eval "pre_install"
         
-      #- uses: actions/cache@v1
-      #  with:
-      #   path: octave-6.3.0-w64
-      #   key: npm-packages
+      - uses: actions/cache@v1
+        with:
+         path: octave-6.3.0-w64
+         key: octave
+         
+      - name: write codertest1
+        run: echo function [c]=codertest1(a,b);c=a+b;end > codertest1.m
+        
+      - name: write SAY
+        run: echo function SAY;a=questdlg('cucur');sprintf(a);end > SAY.m
+
+      - name: test codertest1
+        run: octave-6.3.0-w64\octave.vbs --eval "pkg load coder; octave2oct('codertest1','mode','static','verbose',1,'cache','cache1')"
+        
+      - name: test SAY
+        run: octave-6.3.0-w64\octave.vbs --eval "pkg load coder; octave2oct('SAY','mode','static','verbose',1,'cache','cache2')"
