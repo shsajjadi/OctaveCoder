@@ -43,9 +43,12 @@ jobs:
         
       - name: write SAY
         run: echo function SAY;a=questdlg('cucur');sprintf(a);end > SAY.m
-
+      
+      - name: change dir
+        run: cd src
+        
       - name: test codertest1
-        run: octave-6.3.0-w64\octave.vbs --eval "pkg load coder; octave2oct('codertest1','mode','static','verbose',1,'cache','cache1')"
+        run: ..\octave-6.3.0-w64\octave.vbs --eval "octave2oct('codertest1','mode','static','verbose',1,'cache','cache1')"
         
       - name: test SAY
-        run: octave-6.3.0-w64\octave.vbs --eval "pkg load coder; octave2oct('SAY','mode','static','verbose',1,'cache','cache2')"
+        run: ..\octave-6.3.0-w64\octave.vbs --eval "octave2oct('SAY','mode','static','verbose',1,'cache','cache2')"
