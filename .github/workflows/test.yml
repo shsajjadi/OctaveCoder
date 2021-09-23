@@ -48,7 +48,13 @@ jobs:
         run: cd src
         
       - name: test codertest1
-        run: ..\octave-6.3.0-w64\octave.vbs --eval "octave2oct('codertest1','mode','static','verbose',1,'cache','cache1')"
+        run: ..\octave-6.3.0-w64\octave.vbs --eval "diary on;octave2oct('codertest1','mode','static','verbose',1,'cache','cache1');diary off;"
+      
+      - name: echo to cmd 
+        run: type diary
         
       - name: test SAY
-        run: ..\octave-6.3.0-w64\octave.vbs --eval "octave2oct('SAY','mode','static','verbose',1,'cache','cache2')"
+        run: ..\octave-6.3.0-w64\octave.vbs --eval "diary on;octave2oct('SAY','mode','static','verbose',1,'cache','cache2');diary off;"
+      
+      - name: echo to cmd 
+        run: type diary
