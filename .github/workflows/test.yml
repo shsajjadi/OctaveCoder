@@ -39,10 +39,10 @@ jobs:
          key: octave
          
       - name: write codertest1
-        run: "function [c]=codertest1(a,b);c=a+b;end" | Out-File -FilePath codertest1.m
+        run: Add-Content -Path codertest1.m -Value 'function [c]=codertest1(a,b);c=a+b;end'
         
       - name: write SAY
-        run:  "function SAY;a=questdlg('cucur');sprintf(a);end" | Out-File -FilePath SAY.m
+        run:  Add-Content -Path SAY.m -Value 'function SAY;a=questdlg("cucur");sprintf(a);end'
       
       - name: change dir
         run: cd src
