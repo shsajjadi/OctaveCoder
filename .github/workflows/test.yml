@@ -39,10 +39,10 @@ jobs:
          key: octave
          
       - name: write codertest1
-        run: echo function [c]=codertest1(a,b);c=a+b;end > codertest1.m
+        run: "function [c]=codertest1(a,b);c=a+b;end" | Out-File -FilePath codertest1.m
         
       - name: write SAY
-        run: echo function SAY;a=questdlg('cucur');sprintf(a);end > SAY.m
+        run:  "function SAY;a=questdlg('cucur');sprintf(a);end" | Out-File -FilePath SAY.m
       
       - name: change dir
         run: cd src
