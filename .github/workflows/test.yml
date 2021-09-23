@@ -31,7 +31,7 @@ jobs:
         run: 7z x octave-6.3.0-w64.7z
                  
       - name: Install coder
-        run: octave-6.3.0-w64\mingw64\bin\octave.bat --eval "diary on;pre_install;diary off;"
+        run: octave-6.3.0-w64\mingw64\bin\octave.bat --eval "pre_install;"
         
       - name: echo installation cmd 
         run: type diary
@@ -57,13 +57,11 @@ jobs:
         run:  Add-Content -Path SAY.m -Value 'function SAY;a=questdlg("cucur");sprintf(a);end'
               
       - name: test codertest1
-        run: octave-6.3.0-w64\mingw64\bin\octave.bat --eval "diary on;octave2oct('codertest1','mode','static','verbose',1,'cache','cache1');diary off;"
+        run: octave-6.3.0-w64\mingw64\bin\octave.bat --eval "octave2oct('codertest1','mode','static','verbose',1,'cache','cache1');"
       
-      - name: echo to cmd 
-        run: type diary
+
         
       - name: test SAY
-        run: octave-6.3.0-w64\mingw64\bin\octave.bat --eval "diary on;octave2oct('SAY','mode','static','verbose',1,'cache','cache2');diary off;"
+        run: octave-6.3.0-w64\mingw64\bin\octave.bat --eval "octave2oct('SAY','mode','static','verbose',1,'cache','cache2');"
       
-      - name: echo to cmd 
-        run: type diary
+
