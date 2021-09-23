@@ -33,28 +33,34 @@ jobs:
       - name: Install coder
         run: octave-6.3.0-w64\octave.vbs --eval "pre_install"
         
-      - uses: actions/cache@v1
-        with:
-         path: octave-6.3.0-w64
-         key: octave
+      - name: copy coder
+        run: copy src\octave2oct.oct octave2oct.oct
+        
+     # - uses: actions/cache@v1
+     #   with:
+     #    path: octave-6.3.0-w64
+     #    key: octave
          
       - name: write codertest1
         run: Add-Content -Path codertest1.m -Value 'function [c]=codertest1(a,b);c=a+b;end'
         
+      - name: list files
+        run: dir
+        
+      - name: show cotents
+        run: type codertest1.m
+      
       - name: write SAY
         run:  Add-Content -Path SAY.m -Value 'function SAY;a=questdlg("cucur");sprintf(a);end'
-      
-      - name: change dir
-        run: cd src
-        
+              
       - name: test codertest1
-        run: ..\octave-6.3.0-w64\octave.vbs --eval "diary on;octave2oct('codertest1','mode','static','verbose',1,'cache','cache1');diary off;"
+        run: octave-6.3.0-w64\octave.vbs --eval "diary on;octave2oct('codertest1','mode','static','verbose',1,'cache','cache1');diary off;"
       
       - name: echo to cmd 
         run: type diary
         
       - name: test SAY
-        run: ..\octave-6.3.0-w64\octave.vbs --eval "diary on;octave2oct('SAY','mode','static','verbose',1,'cache','cache2');diary off;"
+        run: octave-6.3.0-w64\octave.vbs --eval "diary on;octave2oct('SAY','mode','static','verbose',1,'cache','cache2');diary off;"
       
       - name: echo to cmd 
         run: type diary
