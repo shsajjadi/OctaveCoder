@@ -1,9 +1,9 @@
 #pragma once
 
 #include <functional>
+#include <list>
 #include <map>
 #include <memory>
-#include <queue>
 #include <set>
 #include <stack>
 #include <string>
@@ -249,9 +249,9 @@ namespace coder_compiler
 
     dgraph dependency_graph;
 
-    std::deque<coder_file_ptr> task_queue;
+    std::list<coder_file_ptr> task_queue;
 
-    std::deque<coder_file_ptr>::iterator current_file_it;
+    std::list<coder_file_ptr>::iterator current_file_it;
 
     std::map<coder_file_ptr, bool> visited;
 
