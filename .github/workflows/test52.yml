@@ -22,23 +22,23 @@ jobs:
 
       # Runs a single command using the runners shell
       - name: Download Octave
-        run: Invoke-WebRequest https://ftp.gnu.org/gnu/octave/windows/octave-5.2.0_1-w64.7z -O octave-5.2.0_1-w64.7z
+        run: Invoke-WebRequest https://ftp.gnu.org/gnu/octave/windows/octave-5.2.0-w64.7z -O octave-5.2.0-w64.7z
 
       - name: list files
         run: dir
       
       - name: Extract Octave
-        run: 7z x octave-5.2.0_1-w64.7z
+        run: 7z x octave-5.2.0-w64.7z
                  
       - name: Install coder
-        run: octave-5.2.0_1-w64\mingw64\bin\octave.bat --eval "pre_install;"
+        run: octave-5.2.0-w64\mingw64\bin\octave.bat --eval "pre_install;"
                 
       - name: copy coder
         run: copy src\octave2oct.oct octave2oct.oct
         
      # - uses: actions/cache@v1
      #   with:
-     #    path: octave-6.3.0-w64
+     #    path: octave-5.2.0-w64
      #    key: octave
          
       - name: write codertest1
@@ -54,11 +54,11 @@ jobs:
         run:  Add-Content -Path SAY.m -Value 'function SAY;a=questdlg("cucur");sprintf(a);end'
               
       - name: test codertest1
-        run: octave-5.2.0_1-w64\mingw64\bin\octave.bat --eval '"octave2oct("""codertest1""", """mode""", """static""", """verbose""", 1, """cache""", """cache1""")"'
+        run: octave-5.2.0-w64\mingw64\bin\octave.bat --eval '"octave2oct("""codertest1""", """mode""", """static""", """verbose""", 1, """cache""", """cache1""")"'
       
 
         
       - name: test SAY
-        run: octave-5.2.0_1-w64\mingw64\bin\octave.bat --eval '"octave2oct("""SAY""", """mode""", """static""", """verbose""", 1, """cache""", """cache2""")"'
+        run: octave-5.2.0-w64\mingw64\bin\octave.bat --eval '"octave2oct("""SAY""", """mode""", """static""", """verbose""", 1, """cache""", """cache2""")"'
       
 
