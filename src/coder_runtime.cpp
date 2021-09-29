@@ -4514,7 +4514,7 @@ namespace coder
       {
         i++;
 
-        Tilde * is_tilde = dynamic_cast<Tilde *> (&*elt.begin());
+        Tilde * is_tilde = dynamic_cast<Tilde *> (&elt.begin ()->get ());
 
         if (is_tilde)
           continue;
