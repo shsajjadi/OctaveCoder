@@ -4514,6 +4514,11 @@ namespace coder
       {
         i++;
 
+        Tilde * is_tilde = dynamic_cast<Tilde *> (&*elt.begin());
+
+        if (is_tilde)
+          continue;
+
         if (i < args.length ())
           {
             if (args(i).is_defined () && args(i).is_magic_colon ())
