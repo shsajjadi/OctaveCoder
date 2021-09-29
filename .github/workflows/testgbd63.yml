@@ -51,4 +51,4 @@ jobs:
       - name: compile        
         run: octave-6.3.0-w64\mingw64\bin\octave.bat --eval  '"octave2oct("""tst""", """mode""", """static""", """verbose""", 1, """cache""", """cache2""", """debug""",1)"'
       - name: test tst
-        run: octave-6.3.0-w64\mingw64\bin\gdb -batch -ex=r --args octave-6.3.0-w64\mingw64\bin\octave-cli --eval '"tst"'
+        run: octave-6.3.0-w64\mingw64\bin\gdb -batch -ex=r -ex=bt --args octave-6.3.0-w64\mingw64\bin\octave-cli --eval '"tst"'
