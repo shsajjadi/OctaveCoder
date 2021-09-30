@@ -991,8 +991,53 @@ template <int size>
 #endif
 #define UNWIND_PROTECT(unwind_protect_code , cleanup_code)\
 {\
+  try\
+    {\
+      try\
+        {\
           {unwind_protect_code}\
+        }\
+      catch (...)\
+        {\
+          throw;\
+        }\
+      throw normal_unwind {};\
+    }\
+  catch (...)\
+    {\
+      try\
+        {\
+          try\
+            {\
+              throw;\
+            }\
+          catch (unwind_ex)\
+            {\
+              throw;\
+            }\
+          catch (...)\
+            {\
+              recover_from_execution_and_interrupt_excep ();\
+              throw;\
+            }\
+        }\
+      catch (...)\
+        {\
           {cleanup_code}\
+          try\
+            {\
+              throw;\
+            }\
+          catch (return_unwind)\
+            {\
+              goto Return;\
+            }\
+          catch (...)\
+            {\
+              throw;\
+            }\
+        }\
+    }\
 }
 #define UNWIND_PROTECT_LOOP(unwind_protect_code , cleanup_code)\
 {\
@@ -1148,7 +1193,7 @@ namespace coder
   coder_value::~coder_value()
   {
     if (val)
-      val->release ();
+      octave_value (val, false);
   }
   coder_value::coder_value (coder_value&& v)
   :val(v.val)
