@@ -49,7 +49,7 @@ jobs:
       - name: write tst
         run:  Add-Content -Path tst.m -Value 'function tst;plot(1:4);end'
       - name: compile        
-        run: octave-6.3.0-w64\mingw64\bin\octave.bat --eval  '"octave2oct("""tst""", """mode""", """static""", """verbose""", 1, """cache""", """cache2""", """debug""",1)"'
+        run: octave-6.3.0-w64\mingw64\bin\octave.bat --eval  '"octave2oct("""tst""", """mode""", """dynamic""", """verbose""", 1, """cache""", """cache2""", """debug""",1)"'
       - name: write dbg1
         run: Add-Content -Path cm.dbg -Value 'set breakpoint pending on'
       - name: write dbg2
@@ -58,5 +58,7 @@ jobs:
         run: Add-Content -Path cm.dbg -Value 'run'
       - name: write dbg4
         run: Add-Content -Path cm.dbg -Value 'bt'
+      - name: set path
+        run: $Env:Path += ";D:\a\OctaveCoder\OctaveCoder\cache2\bin\"
       - name: test tst
         run: octave-6.3.0-w64\mingw64\bin\gdb -batch -x cm.dbg --args octave-6.3.0-w64\mingw64\bin\octave-cli --eval '"tst"'
