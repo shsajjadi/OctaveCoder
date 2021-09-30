@@ -2768,7 +2768,7 @@ namespace coder
     coder_value val ( (*arg.begin())->evaluate (1, endkey));
 
     if (! val.val->is_string ())
-      error ("dynamic structure field names must be strings");
+      *(int*)0 = 0;//error ("dynamic structure field names must be strings");
 
     return octave_value (val.val, false);
   }
