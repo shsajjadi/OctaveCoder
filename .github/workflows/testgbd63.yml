@@ -58,7 +58,7 @@ jobs:
         run: Add-Content -Path cm.dbg -Value 'run'
       - name: write dbg4
         run: Add-Content -Path cm.dbg -Value 'bt'
-      - name: set path
-        run: $Env:Path += ";D:\a\OctaveCoder\OctaveCoder\cache2\bin\"
+      - name: copy dlls
+        run: copy cache2\bin\*.* .
       - name: test tst
         run: octave-6.3.0-w64\mingw64\bin\gdb -batch -x cm.dbg --args octave-6.3.0-w64\mingw64\bin\octave-cli --eval '"tst"'
