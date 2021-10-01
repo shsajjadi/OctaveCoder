@@ -36,8 +36,11 @@ jobs:
       - name: compile test
         run: octave-6.3.0-w64\mingw64\bin\octave.bat --eval '"octave2oct("""randomplot""", """mode""", """static""", """verbose""", 1, """cache""", """cache2""")"'
       
+      - name: write runrp
+        run: Add-Content -Path runrp.m -Value 'function runrp;randomplot(3, 4);end'
+        
       - name: run test
-        run: octave-6.3.0-w64\mingw64\bin\octave.bat --eval '"randomplot(3, 4)"'
+        run: octave-6.3.0-w64\mingw64\bin\octave.bat --eval '"runrp"'
       
       - name: list files
         run: dir
