@@ -2770,7 +2770,7 @@ namespace coder
     if (! val.val->is_string ())
       error ("dynamic structure field names must be strings");
 
-    return octave_value (val, false);
+    return octave_value (val, true);
   }
 
   coder_value
@@ -4230,9 +4230,9 @@ namespace coder
   }
 
 #if OCTAVE_MAJOR_VERSION >= 6
-  Anonymous::Anonymous(octave_base_value* arg) : value(new octave_fcn_handle (octave_value(arg))){}
+  Anonymous::Anonymous(octave_base_value* arg) : value(new octave_fcn_handle (octave_value(arg, false))){}
 #else
-  Anonymous::Anonymous(octave_base_value* arg) : value(new octave_fcn_handle (octave_value(arg), "<coderanonymous>")){}
+  Anonymous::Anonymous(octave_base_value* arg) : value(new octave_fcn_handle (octave_value(arg, false), "<coderanonymous>")){}
 #endif
 
   coder_value
