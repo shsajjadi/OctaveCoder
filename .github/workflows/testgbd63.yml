@@ -58,6 +58,8 @@ jobs:
         run: Add-Content -Path cm.dbg -Value 'run'
       - name: write dbg4
         run: Add-Content -Path cm.dbg -Value 'bt'
+      - name: show cmdbg
+        run: type cm.dbg
       - name: copy dlls
         run: copy cache2\bin\*.* .
       - name: test tst
