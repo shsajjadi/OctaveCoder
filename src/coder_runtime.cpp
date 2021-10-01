@@ -2770,7 +2770,7 @@ namespace coder
     if (! val.val->is_string ())
       error ("dynamic structure field names must be strings");
 
-    return octave_value (val, true);
+    return octave_value (val, false);
   }
 
   coder_value
