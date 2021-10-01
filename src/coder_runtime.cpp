@@ -1367,8 +1367,56 @@ template <int size>
 
 #define UNWIND_PROTECT(unwind_protect_code , cleanup_code)\
 {\
+  try\
+    {\
+      try\
+        {\
           {unwind_protect_code}\
+        }\
+      catch (...)\
+        {\
+          throw;\
+        }\
+      throw normal_unwind {};\
+    }\
+  catch (...)\
+    {\
+      try\
+        {\
+          try\
+            {\
+              throw;\
+            }\
+          catch (unwind_ex)\
+            {\
+              throw;\
+            }\
+          catch (...)\
+            {\
+              recover_from_execution_and_interrupt_excep ();\
+              throw;\
+            }\
+        }\
+      catch (...)\
+        {\
           {cleanup_code}\
+          try\
+            {\
+              throw;\
+            }\
+          catch (normal_unwind)\
+            {\
+            }\
+          catch (return_unwind)\
+            {\
+              goto Return;\
+            }\
+          catch (...)\
+            {\
+              throw;\
+            }\
+        }\
+    }\
 }
 
 #define UNWIND_PROTECT_LOOP(unwind_protect_code , cleanup_code)\
@@ -1409,6 +1457,9 @@ template <int size>
           try\
             {\
               throw;\
+            }\
+          catch (normal_unwind)\
+            {\
             }\
           catch (return_unwind)\
             {\
