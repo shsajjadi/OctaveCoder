@@ -1,3 +1,4 @@
+#include <functional>
 #include <memory>
 #include "sys/stat.h"
 
@@ -14,6 +15,19 @@
 
 namespace coder_compiler
 {
+  struct unwind
+  {
+    unwind (std::function<void ()> fcn) : m_fcn (std::move (fcn))
+    {}
+
+    ~unwind ()
+    {
+      m_fcn ();
+    }
+
+    std::function<void ()> m_fcn;
+  };
+
   file_time::file_time(const std::string& filename)
   : ok(false), m_mtime(0)
   {
@@ -51,6 +65,9 @@ namespace coder_compiler
   function_finder::~function_finder ()
   {
 #if OCTAVE_MAJOR_VERSION < 6
+    if (! oldscope)
+      return;
+
     octave::symbol_table& octave_symtab = octave::interpreter::the_interpreter ()->get_symbol_table();
 
     octave_symtab.set_scope(oldscope);
@@ -273,6 +290,8 @@ namespace coder_compiler
   semantic_analyser::visit_octave_user_function (octave_user_function& fcnn)
   {
     scope_stack.push (fcnn.scope());
+
+    unwind unw ([&](){scope_stack.pop ();});
 
     octave::tree_parameter_list *ret_list = fcnn.return_list ();
 
@@ -1007,7 +1026,7 @@ namespace coder_compiler
             global_file = *cache_file;
 
             visited[global_file] = true;
-            
+
             dependency_graph[current_file()].insert(global_file);
 
             for (const auto& var: global_file->local_functions)
