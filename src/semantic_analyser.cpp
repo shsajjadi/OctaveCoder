@@ -434,8 +434,6 @@ namespace coder_compiler
               }
           }
       }
-
-    scope_stack.pop ();
   }
 
   void
