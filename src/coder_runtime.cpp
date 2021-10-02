@@ -1583,7 +1583,7 @@ namespace coder
   coder_value::~coder_value()
   {
     if (val)
-      val->release ();
+      octave_value (val, false);
   }
 
   coder_value::coder_value (coder_value&& v)
@@ -1595,7 +1595,7 @@ namespace coder
   coder_value& coder_value::operator= (coder_value&& v)
   {
     if (val)
-      val->release ();
+      octave_value (val, false);
 
     val = v.val;
 
@@ -2412,7 +2412,7 @@ namespace coder
     if (tmp != value)
       {
         if (value )
-          value->release ();
+          octave_value (value, false);
 
         value = tmp;
 
@@ -2428,7 +2428,7 @@ namespace coder
   Symbol& Symbol::operator=(Symbol&& other)
   {
     if (value )
-      value->release ();
+      octave_value (value, false);
 
     value = other.value;
 
@@ -2449,7 +2449,7 @@ namespace coder
   Symbol::~Symbol ()
   {
     if (value)
-      value->release ();
+      octave_value (value, false);
   }
 
   Symbol::Symbol(const std::string &fcn_name, const std::string &file_name,
@@ -2815,7 +2815,7 @@ namespace coder
     if (! val.val->is_string ())
       error ("dynamic structure field names must be strings");
 
-    return octave_value (val.val, false);
+    return octave_value (val, false);
   }
 
   coder_value
@@ -4271,13 +4271,13 @@ namespace coder
 
     err_invalid_fcn_handle (name);
 #endif
-    return coder_value {};
+    return coder_value {octave_value ()};
   }
 
 #if OCTAVE_MAJOR_VERSION >= 6
-  Anonymous::Anonymous(octave_base_value* arg) : value(new octave_fcn_handle (octave_value(arg))){}
+  Anonymous::Anonymous(octave_base_value* arg) : value(new octave_fcn_handle (octave_value(arg, false))){}
 #else
-  Anonymous::Anonymous(octave_base_value* arg) : value(new octave_fcn_handle (octave_value(arg), "<coderanonymous>")){}
+  Anonymous::Anonymous(octave_base_value* arg) : value(new octave_fcn_handle (octave_value(arg, false), "<coderanonymous>")){}
 #endif
 
   coder_value
@@ -4696,7 +4696,7 @@ namespace coder
     octave_base_value*& id_val = id.get_value ();
 
     if (id_val)
-      id_val->release ();
+      octave_value (id_val, false);
 
     id_val = val;
   }
