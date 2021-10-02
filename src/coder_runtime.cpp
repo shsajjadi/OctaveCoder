@@ -1404,6 +1404,9 @@ template <int size>
             {\
               throw;\
             }\
+          catch (normal_unwind)\
+            {\
+            }\
           catch (return_unwind)\
             {\
               goto Return;\
@@ -1454,6 +1457,9 @@ template <int size>
           try\
             {\
               throw;\
+            }\
+          catch (normal_unwind)\
+            {\
             }\
           catch (return_unwind)\
             {\
