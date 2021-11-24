@@ -2133,7 +2133,7 @@ namespace coder
   {
     return new coder_stateful_function(std::move (fcn));
   }
-    
+
   bool
   coder_lvalue::is_defined (void) const
   {
