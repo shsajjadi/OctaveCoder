@@ -294,8 +294,7 @@ namespace coder
 
   struct Index : LightweightExpression
   {
-
-    Index(Ptr arg, const std::string& type, Ptr_list_list&& arg_list)
+    Index(Ptr arg, const char *type, Ptr_list_list&& arg_list)
     : base(arg),idx_type(type),arg_list(arg_list){}
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
