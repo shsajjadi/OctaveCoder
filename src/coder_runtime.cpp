@@ -219,6 +219,15 @@ namespace coder
     operator bool();
   };
 
+  struct LightweightExpression : public Expression
+  {
+    LightweightExpression()=default;
+    LightweightExpression(LightweightExpression const&)=delete;
+    LightweightExpression(LightweightExpression &&)=delete;
+    LightweightExpression& operator=(LightweightExpression const&)=delete;
+    LightweightExpression& operator=(LightweightExpression &&)=delete;
+  };
+
   struct Symbol : Expression
   {
     explicit Symbol(const char *fcn_name, const char *file_name, const char *path, file_type type );
@@ -279,7 +288,7 @@ namespace coder
     Symbol* reference;
   };
 
-  struct Index : Expression
+  struct Index : LightweightExpression
   {
 
     Index(Ptr arg, const std::string& type, Ptr_list_list&& arg_list)
@@ -299,14 +308,14 @@ namespace coder
     Ptr_list_list& arg_list;
   };
 
-  struct Null : Expression
+  struct Null : LightweightExpression
   {
     Null () = default;
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
   };
 
-  struct NullStr : Expression
+  struct NullStr : LightweightExpression
   {
     NullStr () = default;
 
@@ -315,7 +324,7 @@ namespace coder
 
   using NullDqStr = NullStr;
 
-  struct NullSqStr : Expression
+  struct NullSqStr : LightweightExpression
   {
     NullSqStr()=default;
 
@@ -424,7 +433,7 @@ namespace coder
     return string_literal_dq (str);
   }
 
-  struct Plus : public Expression
+  struct Plus : public LightweightExpression
   {
     Plus(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -434,7 +443,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Minus : public Expression
+  struct Minus : public LightweightExpression
   {
     Minus(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -444,7 +453,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Uplus : public Expression
+  struct Uplus : public LightweightExpression
   {
     Uplus(Ptr rhs) : a(rhs){}
 
@@ -453,7 +462,7 @@ namespace coder
     Ptr a;
   };
 
-  struct Uminus : public Expression
+  struct Uminus : public LightweightExpression
   {
     Uminus(Ptr rhs) : a(rhs){}
 
@@ -462,7 +471,7 @@ namespace coder
     Ptr a;
   };
 
-  struct Preinc : public Expression
+  struct Preinc : public LightweightExpression
   {
     Preinc(Ptr rhs) : a(rhs){}
 
@@ -471,7 +480,7 @@ namespace coder
     Ptr a;
   };
 
-  struct Predec : public Expression
+  struct Predec : public LightweightExpression
   {
     Predec(Ptr rhs) : a(rhs){}
 
@@ -480,7 +489,7 @@ namespace coder
     Ptr a;
   };
 
-  struct Postinc : public Expression
+  struct Postinc : public LightweightExpression
   {
     Postinc(Ptr lhs) : a(lhs){}
 
@@ -489,7 +498,7 @@ namespace coder
     Ptr a;
   };
 
-  struct Postdec : public Expression
+  struct Postdec : public LightweightExpression
   {
     Postdec(Ptr lhs) : a(lhs){}
 
@@ -498,7 +507,7 @@ namespace coder
     Ptr a;
   };
 
-  struct Not : public Expression
+  struct Not : public LightweightExpression
   {
     Not(Ptr rhs) : a(rhs){}
 
@@ -507,7 +516,7 @@ namespace coder
     Ptr a;
   };
 
-  struct Power : public Expression
+  struct Power : public LightweightExpression
   {
     Power(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -517,7 +526,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Mpower : public Expression
+  struct Mpower : public LightweightExpression
   {
     Mpower(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -527,7 +536,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Transpose : public Expression
+  struct Transpose : public LightweightExpression
   {
     Transpose(Ptr lhs) : a(lhs){}
 
@@ -536,7 +545,7 @@ namespace coder
     Ptr a;
   };
 
-  struct Ctranspose : public Expression
+  struct Ctranspose : public LightweightExpression
   {
     Ctranspose(Ptr lhs) : a(lhs){}
 
@@ -545,7 +554,7 @@ namespace coder
     Ptr a;
   };
 
-  struct Mtimes : public Expression
+  struct Mtimes : public LightweightExpression
   {
     Mtimes(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -555,7 +564,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Mrdivide : public Expression
+  struct Mrdivide : public LightweightExpression
   {
     Mrdivide(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -565,7 +574,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Mldivide : public Expression
+  struct Mldivide : public LightweightExpression
   {
     Mldivide(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -575,7 +584,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Times : public Expression
+  struct Times : public LightweightExpression
   {
     Times(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -585,7 +594,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Rdivide : public Expression
+  struct Rdivide : public LightweightExpression
   {
     Rdivide(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -595,7 +604,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Colon : public Expression
+  struct Colon : public LightweightExpression
   {
     Colon(Ptr base, Ptr limit) : base(base),limit(limit){}
 
@@ -608,7 +617,7 @@ namespace coder
     Ptr limit;
   } ;
 
-  struct Lt : public Expression
+  struct Lt : public LightweightExpression
   {
     Lt(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -618,7 +627,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Gt : public Expression
+  struct Gt : public LightweightExpression
   {
     Gt(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -628,7 +637,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Le : public Expression
+  struct Le : public LightweightExpression
   {
     Le(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -638,7 +647,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Ge : public Expression
+  struct Ge : public LightweightExpression
   {
     Ge(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -648,7 +657,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Eq : public Expression
+  struct Eq : public LightweightExpression
   {
     Eq(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -658,7 +667,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Ne : public Expression
+  struct Ne : public LightweightExpression
   {
     Ne(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -668,7 +677,7 @@ namespace coder
     Ptr b;
   };
 
-  struct And : public Expression
+  struct And : public LightweightExpression
   {
     And(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -678,7 +687,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Or : public Expression
+  struct Or : public LightweightExpression
   {
     Or(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -688,7 +697,7 @@ namespace coder
     Ptr b;
   };
 
-  struct AndAnd : public Expression
+  struct AndAnd : public LightweightExpression
   {
     AndAnd(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -698,7 +707,7 @@ namespace coder
     Ptr b;
   };
 
-  struct OrOr : public Expression
+  struct OrOr : public LightweightExpression
   {
     OrOr(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -708,7 +717,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Assign : public Expression
+  struct Assign : public LightweightExpression
   {
     Assign(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -718,7 +727,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignAdd : public Expression
+  struct AssignAdd : public LightweightExpression
   {
     AssignAdd(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -728,7 +737,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignSub : public Expression
+  struct AssignSub : public LightweightExpression
   {
     AssignSub(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -738,7 +747,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignMul : public Expression
+  struct AssignMul : public LightweightExpression
   {
     AssignMul(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -748,7 +757,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignDiv : public Expression
+  struct AssignDiv : public LightweightExpression
   {
     AssignDiv(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -758,7 +767,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignLdiv : public Expression
+  struct AssignLdiv : public LightweightExpression
   {
     AssignLdiv(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -768,7 +777,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignPow : public Expression
+  struct AssignPow : public LightweightExpression
   {
     AssignPow(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -778,7 +787,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignElMul : public Expression
+  struct AssignElMul : public LightweightExpression
   {
     AssignElMul(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -788,7 +797,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignElDiv : public Expression
+  struct AssignElDiv : public LightweightExpression
   {
     AssignElDiv(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -798,7 +807,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignElLdiv : public Expression
+  struct AssignElLdiv : public LightweightExpression
   {
     AssignElLdiv(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -808,7 +817,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignElPow : public Expression
+  struct AssignElPow : public LightweightExpression
   {
     AssignElPow(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -818,7 +827,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignElAnd : public Expression
+  struct AssignElAnd : public LightweightExpression
   {
     AssignElAnd(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -828,7 +837,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignElOr : public Expression
+  struct AssignElOr : public LightweightExpression
   {
     AssignElOr(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -838,7 +847,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct MultiAssign : public Expression
+  struct MultiAssign : public LightweightExpression
   {
     MultiAssign(Ptr_list&& lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -850,7 +859,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct TransMul : public Expression
+  struct TransMul : public LightweightExpression
   {
     TransMul(Ptr lhs, Ptr rhs) : op_lhs(lhs),op_rhs(rhs){}
 
@@ -860,7 +869,7 @@ namespace coder
     Ptr op_rhs;
   };
 
-  struct MulTrans : public Expression
+  struct MulTrans : public LightweightExpression
   {
     MulTrans(Ptr lhs, Ptr rhs) : op_lhs(lhs),op_rhs(rhs){}
 
@@ -870,7 +879,7 @@ namespace coder
     Ptr op_rhs;
   };
 
-  struct HermMul : public Expression
+  struct HermMul : public LightweightExpression
   {
     HermMul(Ptr lhs, Ptr rhs) : op_lhs(lhs),op_rhs(rhs){}
 
@@ -880,7 +889,7 @@ namespace coder
     Ptr op_rhs;
   };
 
-  struct MulHerm : public Expression
+  struct MulHerm : public LightweightExpression
   {
     MulHerm(Ptr lhs, Ptr rhs) : op_lhs(lhs),op_rhs(rhs){}
 
@@ -890,7 +899,7 @@ namespace coder
     Ptr op_rhs;
   };
 
-  struct TransLdiv : public Expression
+  struct TransLdiv : public LightweightExpression
   {
     TransLdiv(Ptr lhs, Ptr rhs) : op_lhs(lhs),op_rhs(rhs){}
 
@@ -900,7 +909,7 @@ namespace coder
     Ptr op_rhs;
   };
 
-  struct HermLdiv : public Expression
+  struct HermLdiv : public LightweightExpression
   {
     HermLdiv(Ptr lhs, Ptr rhs) : op_lhs(lhs),op_rhs(rhs){}
 
@@ -910,7 +919,7 @@ namespace coder
     Ptr op_rhs;
   };
 
-  struct NotAnd : public Expression
+  struct NotAnd : public LightweightExpression
   {
     NotAnd(Ptr lhs, Ptr rhs) : op_lhs(lhs),op_rhs(rhs){}
 
@@ -920,7 +929,7 @@ namespace coder
     Ptr op_rhs;
   };
 
-  struct NotOr : public Expression
+  struct NotOr : public LightweightExpression
   {
     NotOr(Ptr lhs, Ptr rhs) : op_lhs(lhs),op_rhs(rhs){}
 
@@ -930,7 +939,7 @@ namespace coder
     Ptr op_rhs;
   };
 
-  struct AndNot : public Expression
+  struct AndNot : public LightweightExpression
   {
     AndNot(Ptr lhs, Ptr rhs) : op_lhs(lhs),op_rhs(rhs){}
 
@@ -940,7 +949,7 @@ namespace coder
     Ptr op_rhs;
   };
 
-  struct OrNot : public Expression
+  struct OrNot : public LightweightExpression
   {
     OrNot(Ptr lhs, Ptr rhs) : op_lhs(lhs),op_rhs(rhs){}
 
@@ -950,7 +959,7 @@ namespace coder
     Ptr op_rhs;
   };
 
-  struct Handle : Expression
+  struct Handle : public LightweightExpression
   {
     Handle(Ptr rhs, const char* nm) : op_rhs(rhs) ,name(nm), fmaker(nullptr){}
 
@@ -963,7 +972,7 @@ namespace coder
     function_maker fmaker;
   };
 
-  struct Anonymous : Expression
+  struct Anonymous : public LightweightExpression
   {
     Anonymous(octave_base_value* arg);
 
@@ -972,17 +981,16 @@ namespace coder
     coder_value value;
   };
 
-  struct NestedHandle : Expression
+  struct NestedHandle : public LightweightExpression
   {
     NestedHandle(Ptr arg, const char* name);
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
 
-
     coder_value value;
   };
 
-  struct Matrixc : Expression
+  struct Matrixc : public LightweightExpression
   {
     Matrixc(Ptr_list_list&& expr) : mat(expr){}
 
@@ -991,7 +999,7 @@ namespace coder
     Ptr_list_list& mat;
   };
 
-  struct Cellc : Expression
+  struct Cellc : public LightweightExpression
   {
     Cellc(Ptr_list_list&& expr) : cel(expr){}
 
@@ -1000,7 +1008,7 @@ namespace coder
     Ptr_list_list& cel;
   };
 
-  struct Constant : Expression
+  struct Constant : public LightweightExpression
   {
     Constant(Ptr expr) : val(expr->evaluate(1)){}
     Constant(Constant&&other) :
@@ -1013,6 +1021,8 @@ namespace coder
 
   struct Switch
   {
+    Switch() = delete;
+
     Switch(Ptr expr) : val(expr->evaluate(1)){}
 
     bool operator()(Ptr label);
@@ -1020,17 +1030,17 @@ namespace coder
     coder_value val;
   };
 
-  struct End : public Expression
+  struct End : public LightweightExpression
   {
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
   };
 
-  struct MagicColon : public Expression
+  struct MagicColon : public LightweightExpression
   {
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
   };
 
-  struct Tilde : public Expression
+  struct Tilde : public LightweightExpression
   {
     coder_lvalue lvalue(coder_value_list&);
   };
@@ -1244,6 +1254,11 @@ template <int size>
   {
     for_loop_rep* rep;
   public:
+    for_loop()=delete;
+    for_loop(for_loop const&)=delete;
+    for_loop(for_loop &&)=delete;
+    for_loop& operator=(for_loop const&)=delete;
+    for_loop& operator=(for_loop &&)=delete;
     for_loop (Ptr lhs, Ptr expr);
     for_iterator begin() ;
     for_iterator end() ;
@@ -1254,6 +1269,11 @@ template <int size>
   {
     struct_loop_rep* rep;
   public:
+    struct_loop()=delete;
+    struct_loop(struct_loop const&)=delete;
+    struct_loop(struct_loop &&)=delete;
+    struct_loop& operator=(struct_loop const&)=delete;
+    struct_loop& operator=(struct_loop &&)=delete;
     struct_loop (Ptr v, Ptr k, Ptr expr);
     struct_iterator begin() ;
     struct_iterator end() ;
