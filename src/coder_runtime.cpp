@@ -7,8 +7,10 @@ namespace coder_compiler
     static const std::string s = R"header(
 
 #include "version.h"
-#include <type_traits>
 #include <functional>
+#include <initializer_list>
+#include <type_traits>
+#include <utility>
 
 #if OCTAVE_MAJOR_VERSION < 6
 extern int buffer_error_messages;
@@ -84,7 +86,9 @@ namespace coder
 
   octave_base_value* fcn2ov(stateless_function f);
 
-  octave_base_value* stdfcntoov (std::function<void(coder_value_list&, const octave_value_list&,int)> fcn);
+  octave_base_value* stdfcntoov (const std::function<void(coder_value_list&, const octave_value_list&, int)>& fcn);
+
+  octave_base_value* stdfcntoov (std::function<void(coder_value_list&, const octave_value_list&, int)>&& fcn);
 
   template <typename F, typename std::enable_if<
             !std::is_convertible<F,stateless_function>::value, int>::type = 0 >
@@ -2097,7 +2101,7 @@ namespace coder
 
   private:
 
-    std::function<void(coder_value_list&, const octave_value_list&,int)> s;
+    std::function<void(coder_value_list&, const octave_value_list&, int)> s;
     DECLARE_OV_TYPEID_FUNCTIONS_AND_DATA
   };
 
@@ -2120,11 +2124,16 @@ namespace coder
     return new coder_stateless_function(f);
   }
 
-  octave_base_value* stdfcntoov (std::function<void(coder_value_list&, const octave_value_list&,int)> fcn)
+  octave_base_value* stdfcntoov (const std::function<void(coder_value_list&, const octave_value_list&,int)>& fcn)
   {
     return new coder_stateful_function(fcn);
   }
 
+  octave_base_value* stdfcntoov (std::function<void(coder_value_list&, const octave_value_list&,int)>&& fcn)
+  {
+    return new coder_stateful_function(std::move (fcn));
+  }
+    
   bool
   coder_lvalue::is_defined (void) const
   {

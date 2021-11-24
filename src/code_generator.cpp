@@ -1033,7 +1033,7 @@ namespace coder_compiler
         if (nesting_context == 1)
           os_src
             << "return Symbol(fcn2ov("
-            << "nested_fcn"
+            << "std::move(nested_fcn)"
             << "));\n";
       }
 
@@ -3064,7 +3064,7 @@ namespace coder_compiler
 
                 os_src
                   << "return Symbol(fcn2ov("
-                  << "nested_fcn"
+                  << "std::move(nested_fcn)"
                   << "));\n";
 
                 decrement_indent_level (os_src);
