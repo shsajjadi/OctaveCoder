@@ -7,8 +7,10 @@ namespace coder_compiler
     static const std::string s = R"header(
 
 #include "version.h"
-#include <type_traits>
 #include <functional>
+#include <initializer_list>
+#include <type_traits>
+#include <utility>
 
 #if OCTAVE_MAJOR_VERSION < 6
 extern int buffer_error_messages;
@@ -84,7 +86,9 @@ namespace coder
 
   octave_base_value* fcn2ov(stateless_function f);
 
-  octave_base_value* stdfcntoov (std::function<void(coder_value_list&, const octave_value_list&,int)> fcn);
+  octave_base_value* stdfcntoov (const std::function<void(coder_value_list&, const octave_value_list&, int)>& fcn);
+
+  octave_base_value* stdfcntoov (std::function<void(coder_value_list&, const octave_value_list&, int)>&& fcn);
 
   template <typename F, typename std::enable_if<
             !std::is_convertible<F,stateless_function>::value, int>::type = 0 >
@@ -106,13 +110,13 @@ namespace coder
   public:
 
     coder_lvalue (void)
-      : m_sym (nullptr), m_black_hole (false), m_type (),
+      : m_sym (nullptr), m_black_hole (false), m_type (""),
         m_nel (1)
     { }
 
     explicit coder_lvalue (octave_base_value*& sr)
       : m_sym (&sr), m_black_hole (false),
-        m_type (), m_nel (1)
+        m_type (""), m_nel (1)
     { }
 
     coder_lvalue (const coder_lvalue&) = default;
@@ -138,12 +142,12 @@ namespace coder
 
     octave_idx_type numel (void) const { return m_nel; }
 
-    void set_index (const std::string& t,
+    void set_index (const char *t,
                                  coder_value_list& i, coder_value_list& idx);
 
     void clear_index (coder_value_list& idx) ;
 
-    std::string index_type (void) const { return m_type; }
+    const char *index_type (void) const { return m_type; }
 
     bool index_is_empty (coder_value_list& idx) const;
 
@@ -157,7 +161,7 @@ namespace coder
 
     bool m_black_hole;
 
-    std::string m_type;
+    const char *m_type;
 
     octave_idx_type m_nel;
   };
@@ -185,7 +189,7 @@ namespace coder
 
   struct Endindex
   {
-    Endindex(octave_base_value* object, const void* type, const coder_value_list* idx, int position, int num):
+    Endindex(octave_base_value* object, const char *type, const coder_value_list* idx, int position, int num):
       indexed_object(object),
       idx_type(type),
       idx_list(idx),
@@ -198,7 +202,7 @@ namespace coder
     coder_value compute_end() const;
 
     mutable octave_base_value *indexed_object = nullptr;
-    const void* idx_type = nullptr;
+    const char *idx_type = "";
     const coder_value_list* idx_list = nullptr;
     int index_position = 0;
     int num_indices = 0;
@@ -219,9 +223,18 @@ namespace coder
     operator bool();
   };
 
+  struct LightweightExpression : public Expression
+  {
+    LightweightExpression()=default;
+    LightweightExpression(LightweightExpression const&)=delete;
+    LightweightExpression(LightweightExpression &&)=delete;
+    LightweightExpression& operator=(LightweightExpression const&)=delete;
+    LightweightExpression& operator=(LightweightExpression &&)=delete;
+  };
+
   struct Symbol : Expression
   {
-    explicit Symbol(const std::string &fcn_name, const std::string &file_name, const std::string& path, file_type type );
+    explicit Symbol(const char *fcn_name, const char *file_name, const char *path, file_type type );
     explicit Symbol(octave_base_value* arg):value(arg),reference(this){}
 
     Symbol();
@@ -279,7 +292,7 @@ namespace coder
     Symbol* reference;
   };
 
-  struct Index : Expression
+  struct Index : LightweightExpression
   {
 
     Index(Ptr arg, const std::string& type, Ptr_list_list&& arg_list)
@@ -294,19 +307,19 @@ namespace coder
 
     Ptr base;
 
-    std::string idx_type;
+    const char *idx_type;
 
     Ptr_list_list& arg_list;
   };
 
-  struct Null : Expression
+  struct Null : LightweightExpression
   {
     Null () = default;
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
   };
 
-  struct NullStr : Expression
+  struct NullStr : LightweightExpression
   {
     NullStr () = default;
 
@@ -315,7 +328,7 @@ namespace coder
 
   using NullDqStr = NullStr;
 
-  struct NullSqStr : Expression
+  struct NullSqStr : LightweightExpression
   {
     NullSqStr()=default;
 
@@ -324,20 +337,20 @@ namespace coder
 
   struct string_literal_sq : Expression
   {
-    explicit string_literal_sq(const std::string&  str) :str(str){  }
+    explicit string_literal_sq(const char *str) :str(str){  }
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
 
-    std::string str;
+    const char *str;
   };
 
   struct string_literal_dq : Expression
   {
-    explicit string_literal_dq(const std::string&  str) :str(str){  }
+    explicit string_literal_dq(const char *str) :str(str){  }
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
 
-    std::string str;
+    const char *str;
   };
 
   using string_literal = string_literal_sq;
@@ -409,22 +422,22 @@ namespace coder
     return complex_literal(double(d));
   }
 
-  inline string_literal_sq operator"" __( const char *  str, std::size_t sz)
+  inline string_literal_sq operator"" __( const char *str, std::size_t sz)
   {
-    return string_literal_sq(std::string(str, sz));
+    return string_literal_sq (str);
   }
 
-  inline string_literal_sq operator"" _sq( const char *  str, std::size_t sz)
+  inline string_literal_sq operator"" _sq( const char *str, std::size_t sz)
   {
-    return string_literal_sq(std::string(str, sz));
+    return string_literal_sq (str);
   }
 
-  inline string_literal_dq operator"" _dq( const char *  str, std::size_t sz)
+  inline string_literal_dq operator"" _dq( const char *str, std::size_t sz)
   {
-    return string_literal_dq(std::string(str, sz));
+    return string_literal_dq (str);
   }
 
-  struct Plus : public Expression
+  struct Plus : public LightweightExpression
   {
     Plus(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -434,7 +447,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Minus : public Expression
+  struct Minus : public LightweightExpression
   {
     Minus(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -444,7 +457,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Uplus : public Expression
+  struct Uplus : public LightweightExpression
   {
     Uplus(Ptr rhs) : a(rhs){}
 
@@ -453,7 +466,7 @@ namespace coder
     Ptr a;
   };
 
-  struct Uminus : public Expression
+  struct Uminus : public LightweightExpression
   {
     Uminus(Ptr rhs) : a(rhs){}
 
@@ -462,7 +475,7 @@ namespace coder
     Ptr a;
   };
 
-  struct Preinc : public Expression
+  struct Preinc : public LightweightExpression
   {
     Preinc(Ptr rhs) : a(rhs){}
 
@@ -471,7 +484,7 @@ namespace coder
     Ptr a;
   };
 
-  struct Predec : public Expression
+  struct Predec : public LightweightExpression
   {
     Predec(Ptr rhs) : a(rhs){}
 
@@ -480,7 +493,7 @@ namespace coder
     Ptr a;
   };
 
-  struct Postinc : public Expression
+  struct Postinc : public LightweightExpression
   {
     Postinc(Ptr lhs) : a(lhs){}
 
@@ -489,7 +502,7 @@ namespace coder
     Ptr a;
   };
 
-  struct Postdec : public Expression
+  struct Postdec : public LightweightExpression
   {
     Postdec(Ptr lhs) : a(lhs){}
 
@@ -498,7 +511,7 @@ namespace coder
     Ptr a;
   };
 
-  struct Not : public Expression
+  struct Not : public LightweightExpression
   {
     Not(Ptr rhs) : a(rhs){}
 
@@ -507,7 +520,7 @@ namespace coder
     Ptr a;
   };
 
-  struct Power : public Expression
+  struct Power : public LightweightExpression
   {
     Power(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -517,7 +530,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Mpower : public Expression
+  struct Mpower : public LightweightExpression
   {
     Mpower(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -527,7 +540,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Transpose : public Expression
+  struct Transpose : public LightweightExpression
   {
     Transpose(Ptr lhs) : a(lhs){}
 
@@ -536,7 +549,7 @@ namespace coder
     Ptr a;
   };
 
-  struct Ctranspose : public Expression
+  struct Ctranspose : public LightweightExpression
   {
     Ctranspose(Ptr lhs) : a(lhs){}
 
@@ -545,7 +558,7 @@ namespace coder
     Ptr a;
   };
 
-  struct Mtimes : public Expression
+  struct Mtimes : public LightweightExpression
   {
     Mtimes(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -555,7 +568,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Mrdivide : public Expression
+  struct Mrdivide : public LightweightExpression
   {
     Mrdivide(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -565,7 +578,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Mldivide : public Expression
+  struct Mldivide : public LightweightExpression
   {
     Mldivide(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -575,7 +588,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Times : public Expression
+  struct Times : public LightweightExpression
   {
     Times(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -585,7 +598,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Rdivide : public Expression
+  struct Rdivide : public LightweightExpression
   {
     Rdivide(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -595,7 +608,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Colon : public Expression
+  struct Colon : public LightweightExpression
   {
     Colon(Ptr base, Ptr limit) : base(base),limit(limit){}
 
@@ -608,7 +621,7 @@ namespace coder
     Ptr limit;
   } ;
 
-  struct Lt : public Expression
+  struct Lt : public LightweightExpression
   {
     Lt(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -618,7 +631,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Gt : public Expression
+  struct Gt : public LightweightExpression
   {
     Gt(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -628,7 +641,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Le : public Expression
+  struct Le : public LightweightExpression
   {
     Le(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -638,7 +651,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Ge : public Expression
+  struct Ge : public LightweightExpression
   {
     Ge(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -648,7 +661,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Eq : public Expression
+  struct Eq : public LightweightExpression
   {
     Eq(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -658,7 +671,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Ne : public Expression
+  struct Ne : public LightweightExpression
   {
     Ne(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -668,7 +681,7 @@ namespace coder
     Ptr b;
   };
 
-  struct And : public Expression
+  struct And : public LightweightExpression
   {
     And(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -678,7 +691,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Or : public Expression
+  struct Or : public LightweightExpression
   {
     Or(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -688,7 +701,7 @@ namespace coder
     Ptr b;
   };
 
-  struct AndAnd : public Expression
+  struct AndAnd : public LightweightExpression
   {
     AndAnd(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -698,7 +711,7 @@ namespace coder
     Ptr b;
   };
 
-  struct OrOr : public Expression
+  struct OrOr : public LightweightExpression
   {
     OrOr(Ptr lhs, Ptr rhs) : a(lhs),b(rhs){}
 
@@ -708,7 +721,7 @@ namespace coder
     Ptr b;
   };
 
-  struct Assign : public Expression
+  struct Assign : public LightweightExpression
   {
     Assign(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -718,7 +731,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignAdd : public Expression
+  struct AssignAdd : public LightweightExpression
   {
     AssignAdd(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -728,7 +741,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignSub : public Expression
+  struct AssignSub : public LightweightExpression
   {
     AssignSub(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -738,7 +751,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignMul : public Expression
+  struct AssignMul : public LightweightExpression
   {
     AssignMul(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -748,7 +761,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignDiv : public Expression
+  struct AssignDiv : public LightweightExpression
   {
     AssignDiv(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -758,7 +771,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignLdiv : public Expression
+  struct AssignLdiv : public LightweightExpression
   {
     AssignLdiv(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -768,7 +781,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignPow : public Expression
+  struct AssignPow : public LightweightExpression
   {
     AssignPow(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -778,7 +791,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignElMul : public Expression
+  struct AssignElMul : public LightweightExpression
   {
     AssignElMul(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -788,7 +801,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignElDiv : public Expression
+  struct AssignElDiv : public LightweightExpression
   {
     AssignElDiv(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -798,7 +811,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignElLdiv : public Expression
+  struct AssignElLdiv : public LightweightExpression
   {
     AssignElLdiv(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -808,7 +821,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignElPow : public Expression
+  struct AssignElPow : public LightweightExpression
   {
     AssignElPow(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -818,7 +831,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignElAnd : public Expression
+  struct AssignElAnd : public LightweightExpression
   {
     AssignElAnd(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -828,7 +841,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct AssignElOr : public Expression
+  struct AssignElOr : public LightweightExpression
   {
     AssignElOr(Ptr lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -838,7 +851,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct MultiAssign : public Expression
+  struct MultiAssign : public LightweightExpression
   {
     MultiAssign(Ptr_list&& lhs, Ptr rhs) : lhs(lhs),rhs(rhs){}
 
@@ -850,7 +863,7 @@ namespace coder
     Ptr rhs;
   };
 
-  struct TransMul : public Expression
+  struct TransMul : public LightweightExpression
   {
     TransMul(Ptr lhs, Ptr rhs) : op_lhs(lhs),op_rhs(rhs){}
 
@@ -860,7 +873,7 @@ namespace coder
     Ptr op_rhs;
   };
 
-  struct MulTrans : public Expression
+  struct MulTrans : public LightweightExpression
   {
     MulTrans(Ptr lhs, Ptr rhs) : op_lhs(lhs),op_rhs(rhs){}
 
@@ -870,7 +883,7 @@ namespace coder
     Ptr op_rhs;
   };
 
-  struct HermMul : public Expression
+  struct HermMul : public LightweightExpression
   {
     HermMul(Ptr lhs, Ptr rhs) : op_lhs(lhs),op_rhs(rhs){}
 
@@ -880,7 +893,7 @@ namespace coder
     Ptr op_rhs;
   };
 
-  struct MulHerm : public Expression
+  struct MulHerm : public LightweightExpression
   {
     MulHerm(Ptr lhs, Ptr rhs) : op_lhs(lhs),op_rhs(rhs){}
 
@@ -890,7 +903,7 @@ namespace coder
     Ptr op_rhs;
   };
 
-  struct TransLdiv : public Expression
+  struct TransLdiv : public LightweightExpression
   {
     TransLdiv(Ptr lhs, Ptr rhs) : op_lhs(lhs),op_rhs(rhs){}
 
@@ -900,7 +913,7 @@ namespace coder
     Ptr op_rhs;
   };
 
-  struct HermLdiv : public Expression
+  struct HermLdiv : public LightweightExpression
   {
     HermLdiv(Ptr lhs, Ptr rhs) : op_lhs(lhs),op_rhs(rhs){}
 
@@ -910,7 +923,7 @@ namespace coder
     Ptr op_rhs;
   };
 
-  struct NotAnd : public Expression
+  struct NotAnd : public LightweightExpression
   {
     NotAnd(Ptr lhs, Ptr rhs) : op_lhs(lhs),op_rhs(rhs){}
 
@@ -920,7 +933,7 @@ namespace coder
     Ptr op_rhs;
   };
 
-  struct NotOr : public Expression
+  struct NotOr : public LightweightExpression
   {
     NotOr(Ptr lhs, Ptr rhs) : op_lhs(lhs),op_rhs(rhs){}
 
@@ -930,7 +943,7 @@ namespace coder
     Ptr op_rhs;
   };
 
-  struct AndNot : public Expression
+  struct AndNot : public LightweightExpression
   {
     AndNot(Ptr lhs, Ptr rhs) : op_lhs(lhs),op_rhs(rhs){}
 
@@ -940,7 +953,7 @@ namespace coder
     Ptr op_rhs;
   };
 
-  struct OrNot : public Expression
+  struct OrNot : public LightweightExpression
   {
     OrNot(Ptr lhs, Ptr rhs) : op_lhs(lhs),op_rhs(rhs){}
 
@@ -950,7 +963,7 @@ namespace coder
     Ptr op_rhs;
   };
 
-  struct Handle : Expression
+  struct Handle : public LightweightExpression
   {
     Handle(Ptr rhs, const char* nm) : op_rhs(rhs) ,name(nm), fmaker(nullptr){}
 
@@ -963,7 +976,7 @@ namespace coder
     function_maker fmaker;
   };
 
-  struct Anonymous : Expression
+  struct Anonymous : public LightweightExpression
   {
     Anonymous(octave_base_value* arg);
 
@@ -972,17 +985,16 @@ namespace coder
     coder_value value;
   };
 
-  struct NestedHandle : Expression
+  struct NestedHandle : public LightweightExpression
   {
     NestedHandle(Ptr arg, const char* name);
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
 
-
     coder_value value;
   };
 
-  struct Matrixc : Expression
+  struct Matrixc : public LightweightExpression
   {
     Matrixc(Ptr_list_list&& expr) : mat(expr){}
 
@@ -991,7 +1003,7 @@ namespace coder
     Ptr_list_list& mat;
   };
 
-  struct Cellc : Expression
+  struct Cellc : public LightweightExpression
   {
     Cellc(Ptr_list_list&& expr) : cel(expr){}
 
@@ -1000,7 +1012,7 @@ namespace coder
     Ptr_list_list& cel;
   };
 
-  struct Constant : Expression
+  struct Constant : public LightweightExpression
   {
     Constant(Ptr expr) : val(expr->evaluate(1)){}
     Constant(Constant&&other) :
@@ -1013,6 +1025,8 @@ namespace coder
 
   struct Switch
   {
+    Switch() = delete;
+
     Switch(Ptr expr) : val(expr->evaluate(1)){}
 
     bool operator()(Ptr label);
@@ -1020,17 +1034,17 @@ namespace coder
     coder_value val;
   };
 
-  struct End : public Expression
+  struct End : public LightweightExpression
   {
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
   };
 
-  struct MagicColon : public Expression
+  struct MagicColon : public LightweightExpression
   {
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
   };
 
-  struct Tilde : public Expression
+  struct Tilde : public LightweightExpression
   {
     coder_lvalue lvalue(coder_value_list&);
   };
@@ -1244,6 +1258,11 @@ template <int size>
   {
     for_loop_rep* rep;
   public:
+    for_loop()=delete;
+    for_loop(for_loop const&)=delete;
+    for_loop(for_loop &&)=delete;
+    for_loop& operator=(for_loop const&)=delete;
+    for_loop& operator=(for_loop &&)=delete;
     for_loop (Ptr lhs, Ptr expr);
     for_iterator begin() ;
     for_iterator end() ;
@@ -1254,6 +1273,11 @@ template <int size>
   {
     struct_loop_rep* rep;
   public:
+    struct_loop()=delete;
+    struct_loop(struct_loop const&)=delete;
+    struct_loop(struct_loop &&)=delete;
+    struct_loop& operator=(struct_loop const&)=delete;
+    struct_loop& operator=(struct_loop &&)=delete;
     struct_loop (Ptr v, Ptr k, Ptr expr);
     struct_iterator begin() ;
     struct_iterator end() ;
@@ -2077,7 +2101,7 @@ namespace coder
 
   private:
 
-    std::function<void(coder_value_list&, const octave_value_list&,int)> s;
+    std::function<void(coder_value_list&, const octave_value_list&, int)> s;
     DECLARE_OV_TYPEID_FUNCTIONS_AND_DATA
   };
 
@@ -2100,9 +2124,14 @@ namespace coder
     return new coder_stateless_function(f);
   }
 
-  octave_base_value* stdfcntoov (std::function<void(coder_value_list&, const octave_value_list&,int)> fcn)
+  octave_base_value* stdfcntoov (const std::function<void(coder_value_list&, const octave_value_list&,int)>& fcn)
   {
     return new coder_stateful_function(fcn);
+  }
+
+  octave_base_value* stdfcntoov (std::function<void(coder_value_list&, const octave_value_list&,int)>&& fcn)
+  {
+    return new coder_stateful_function(std::move (fcn));
   }
 
   bool
@@ -2153,7 +2182,7 @@ namespace coder
   }
 
   void
-  coder_lvalue::set_index (const std::string& t,
+  coder_lvalue::set_index (const char *t,
                                  coder_value_list& i, coder_value_list& idx)
   {
     coder_value_list& m_i = i;
@@ -2265,8 +2294,6 @@ namespace coder
 
     const coder_value_list& index_list = *idx_list;
 
-    const std::string& index_type = *static_cast <const std::string*>(idx_type);
-
     if (index_list.empty ())
       {
         expr_result = octave_value(indexed_object, true);
@@ -2276,7 +2303,7 @@ namespace coder
         try
           {
             octave_value_list tmp
-              = indexed_object->subsref (index_type.substr (0, index_list.size()), index_list, 1);
+              = indexed_object->subsref ({idx_type, index_list.size()}, index_list, 1);
 
             expr_result = tmp.length () ? tmp(0) : octave_value ();
 
@@ -2458,8 +2485,8 @@ namespace coder
       octave_value (value, false);
   }
 
-  Symbol::Symbol(const std::string &fcn_name, const std::string &file_name,
-  const std::string& path, file_type type )
+  Symbol::Symbol(const char *fcn_name, const char *file_name,
+  const char *path, file_type type )
   : reference (this)
   {
     switch (type)
@@ -2471,7 +2498,7 @@ namespace coder
 
           using octave::sys::file_ops::concat;
 
-          std::string fullname = concat (path, file_name + ".oct");
+          std::string fullname = concat (path, std::string(file_name) + ".oct");
 
           octave_function *tmpfcn
             = dyn_loader.load_oct (fcn_name, fullname, false);
@@ -2482,7 +2509,7 @@ namespace coder
             }
           else
             {
-              error("cannot find %s.oct>%s in %s ", file_name.c_str (), fcn_name.c_str (), path.c_str ());
+              error("cannot find %s.oct>%s in %s ", file_name, fcn_name, path);
             }
 
           break;
@@ -2495,7 +2522,7 @@ namespace coder
 
           using octave::sys::file_ops::concat;
 
-          std::string fullname = concat (path, file_name + ".mex");
+          std::string fullname = concat (path, std::string (file_name) + ".mex");
 
           octave_function *tmpfcn
             = dyn_loader.load_mex (fcn_name, fullname, false);
@@ -2506,7 +2533,7 @@ namespace coder
             }
           else
             {
-              error("cannot find %s.mex>%s in %s ", file_name.c_str (), fcn_name.c_str (), path.c_str ());
+              error("cannot find %s.mex>%s in %s ", file_name, fcn_name, path);
             }
 
           break;
@@ -2524,7 +2551,7 @@ namespace coder
           if(klass.ok ())
             klass_meth =  klass.get_constructor_function();
           else
-            error("cannot find class %s in path %s", fcn_name.c_str (), path.c_str ());
+            error("cannot find class %s in path %s", fcn_name, path);
 #if OCTAVE_MAJOR_VERSION >= 6
           if (klass_meth.is_defined ())
             {
@@ -2537,7 +2564,7 @@ namespace coder
             value = klass_meth;
 #endif
           else
-            error("cannot find class %s in path %s", fcn_name.c_str (), path.c_str ());
+            error("cannot find class %s in path %s", fcn_name, path);
 
           break;
         }
@@ -2565,7 +2592,7 @@ namespace coder
             value = pack_sym;
 #endif
           else
-            error("cannot find package %s in path %s", fcn_name.c_str (), path.c_str ());
+            error("cannot find package %s in path %s", fcn_name, path);
 
           break;
         }
@@ -2853,7 +2880,7 @@ namespace coder
   {
     coder_value_list& retval = output;
 
-    const std::string& type = idx_type;
+    const char *type = idx_type;
 
     auto& args = arg_list;
 
@@ -2894,7 +2921,7 @@ namespace coder
                     if (p_args->size() > 0)
                       {
                         const Endindex &endindex = val->is_function_handle ()
-                          ? Endindex{val, &type, &idx, 0, n}
+                          ? Endindex{val, type, &idx, 0, n}
                           : endkey;
 
                         first_args.append (convert_to_const_vector( *p_args, endindex));
@@ -2965,7 +2992,7 @@ namespace coder
                 try
                   {
                     octave_value_list tmp_list
-                      = base_expr_val.subsref (type.substr (beg, i-beg),
+                      = base_expr_val.subsref ({type+beg, size_t(i-beg)},
                                    idx, nargout);
 
                     partial_expr_val
@@ -2999,7 +3026,7 @@ namespace coder
               }
           }
 
-        Endindex endindex {partial_expr_val.internal_rep(), &type, &idx, i, n};
+        Endindex endindex {partial_expr_val.internal_rep(), type, &idx, i, n};
 
         switch (type[i])
           {
@@ -3034,7 +3061,7 @@ namespace coder
               {
                 retval.clear ();
 
-                retval.append (base_expr_val.subsref (type.substr (beg, n-beg),
+                retval.append (base_expr_val.subsref ({type+beg, size_t(n-beg)},
                         idx, nargout));
 
                 beg = n;
@@ -3119,8 +3146,6 @@ namespace coder
 
     coder_value_list idx;
 
-    std::string tmp_type;
-
     auto& m_expr = base;
 
     auto& m_type = idx_type;
@@ -3156,7 +3181,7 @@ namespace coder
           {
             try
               {
-                tmp = tmp.subsref (m_type.substr (tmpi, i-tmpi), tmpidx, true);
+                tmp = tmp.subsref ({m_type+tmpi, size_t(i-tmpi)}, tmpidx, true);
               }
             catch (octave::index_exception& e)
               {
@@ -3172,7 +3197,7 @@ namespace coder
             Pool::bitidx ().clear ();
           }
 
-        Endindex endindex {base_obj.internal_rep(), &m_type, &resultidx, i, n};
+        Endindex endindex {base_obj.internal_rep(), m_type, &resultidx, i, n};
 
         switch (m_type[i])
           {
@@ -3939,7 +3964,7 @@ namespace coder
 
         coder_value_list& arg = lvalue_arg[0];
 
-        if (ult.index_type () == "{" && ult.index_is_empty (arg)
+        if (! strcmp (ult.index_type () , "{") && ult.index_is_empty (arg)
             && ult.is_undefined ())
           {
             ult.define (Cell (1, 1));
@@ -4138,8 +4163,6 @@ namespace coder
   octave_value
   eval_dot_separated_names (Index& index_expr)
   {
-    const std::string& type = index_expr.idx_type;
-
     auto& args = index_expr.arg_list;
 
     auto& expr = index_expr.base;
@@ -4158,7 +4181,7 @@ namespace coder
       }
 
     octave_value_list tmp_list
-      = base_expr_val.subsref (type, idx, 1);
+      = base_expr_val.subsref (index_expr.idx_type, idx, 1);
 
     return tmp_list.length () ? tmp_list(0) : octave_value ();
   }
