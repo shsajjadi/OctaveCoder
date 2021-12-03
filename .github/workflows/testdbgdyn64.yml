@@ -1,0 +1,74 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI gdb6.4 dynamic 
+
+# Controls when the workflow will run
+on:
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  test:
+    # The type of runner that the job will run on
+    runs-on: windows-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+
+      # Runs a single command using the runners shell
+      - name: Download Octave
+        run: Invoke-WebRequest https://ftp.gnu.org/gnu/octave/windows/octave-6.4.0-w64.7z -O octave-6.4.0-w64.7z
+
+      #- name: list files
+      #  run: dir
+      
+      - name: Extract Octave
+        run: 7z x octave-6.4.0-w64.7z
+                 
+      - name: Install coder
+        run: octave-6.4.0-w64\mingw64\bin\octave.bat --eval "pre_install;"
+                
+      - name: copy coder
+        run: copy src\octave2oct.oct octave2oct.oct
+      
+       #name: change dir
+        #run: cd octave-6.4.0-w64\mingw64\bin
+        
+     # - uses: actions/cache@v1
+     #   with:
+     #    path: octave-6.4.0-w64
+     #    key: octave
+         
+
+      
+        
+      - name: compile        
+        run: octave-6.4.0-w64\mingw64\bin\octave.bat --eval  '"octave2oct("""randomplot""", """mode""", """dynamic""", """verbose""", 1, """cache""", """cache2""", """debug""",1)"'
+      - name: copy dlls
+        run: copy cache2\bin\*.dll 
+      
+      - name: write dbg1
+        run: Add-Content -Path cm.dbg -Value 'set breakpoint pending on'
+      - name: write dbg2
+        run: Add-Content -Path cm.dbg -Value 'break abort'
+      #- name: write dbg3
+      #  run: Add-Content -Path cm.dbg -Value 'run'  
+      #- name: write dbg4
+      #  run: Add-Content -Path cm.dbg -Value 'bt'
+      - name: show cmdbg
+        run: type cm.dbg
+      #- name: copy dlls
+      #  run: copy cache2\bin\*.* .
+      - name: write runrp
+        run: Add-Content -Path runrp.m -Value 'function runrp;randomplot(3, 4);end'
+
+      - name: test tst
+        run: octave-6.4.0-w64\mingw64\bin\gdb -batch -x cm.dbg -ex run -ex bt --args octave-6.4.0-w64\mingw64\bin\octave-cli --eval '"runrp"'
+      
+      - name: list files
+        run: dir
