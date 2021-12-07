@@ -1363,6 +1363,8 @@ template <int size>
     {\
       try_code\
     }\
+  catch (unwind_ex)\
+    { throw; }\
   catch (...)\
     {\
       recover_from_execution_excep ();\
@@ -1378,6 +1380,8 @@ template <int size>
     {\
       try_code\
     }\
+  catch (unwind_ex)\
+    { throw; }\
   catch (...)\
     {\
       recover_from_execution_excep ();\
@@ -1388,7 +1392,7 @@ template <int size>
 
 #endif
 
-#define UNWIND_PROTECT(unwind_protect_code , cleanup_code)\
+#define UNWIND_PROTECT(unwind_protect_code , cleanup_code , return_propagates)\
 {\
   try\
     {\
@@ -1432,7 +1436,7 @@ template <int size>
             }\
           catch (return_unwind)\
             {\
-              goto Return;\
+              if (return_propagates) throw; else goto Return;\
             }\
           catch (...)\
             {\
@@ -1442,7 +1446,7 @@ template <int size>
     }\
 }
 
-#define UNWIND_PROTECT_LOOP(unwind_protect_code , cleanup_code)\
+#define UNWIND_PROTECT_LOOP(unwind_protect_code , cleanup_code , return_propagates , loop_propagates)\
 {\
   try\
     {\
@@ -1486,15 +1490,15 @@ template <int size>
             }\
           catch (return_unwind)\
             {\
-              goto Return;\
+              if (return_propagates) throw; else goto Return;\
             }\
           catch (break_unwind)\
             {\
-              break;\
+              if (loop_propagates) throw; else break;\
             }\
           catch (continue_unwind)\
             {\
-              continue;\
+              if (loop_propagates) throw; else continue;\
             }\
           catch (...)\
             {\
