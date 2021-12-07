@@ -23,6 +23,12 @@ class octave_value;
 
 namespace coder_compiler
 {
+  enum  loop_or_unwind_state
+  {
+    normal_context,
+    looping_context,
+    unwinding_context
+  };
 
   class IndentingOStreambuf : public std::streambuf
   {
@@ -310,9 +316,7 @@ namespace coder_compiler
       std::vector<     // vector of two elements 1-anon_fcn_handles 2-nested functions
         std::deque<symscope_ptr>>> traversed_scopes;
 
-    int looping;
-
-    int unwinding;
+    std::vector<loop_or_unwind_state> loop_or_unwind;
 
     int nconst;
 

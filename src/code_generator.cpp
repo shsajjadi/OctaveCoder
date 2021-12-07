@@ -262,8 +262,7 @@ namespace coder_compiler
     m_file(file),
     dependency_graph(dependency_graph),
     traversed_scopes (m_file->traverse()),
-    looping(0),
-    unwinding(0) ,
+    loop_or_unwind (),
     nconst(0),
     constant_map(),
     os_hdr_ext(header),
@@ -273,6 +272,8 @@ namespace coder_compiler
     nesting_context(0),
     nested_fcn_names()
   {
+    loop_or_unwind.push_back (normal_context);
+
     streams.insert ({&os_hdr, IndentingOStreambuf(os_hdr, 2)});
 
     streams.insert ({&os_src, IndentingOStreambuf(os_src, 2)});
@@ -602,7 +603,7 @@ namespace coder_compiler
   void
   code_generator::visit_break_command (octave::tree_break_command&)
   {
-    if (unwinding)
+    if (loop_or_unwind.back () == unwinding_context)
       {
         os_src << "throw break_unwind {};\n";
       }
@@ -661,7 +662,7 @@ namespace coder_compiler
   void
   code_generator::visit_continue_command (octave::tree_continue_command&)
   {
-    if (unwinding)
+    if (loop_or_unwind.back () == unwinding_context)
       {
         os_src << "throw continue_unwind {};\n";
       }
@@ -781,7 +782,7 @@ namespace coder_compiler
 
     expr->accept(*this) ;
 
-    looping++;
+    loop_or_unwind.push_back(looping_context);
 
     os_src
       << "))\n" ;
@@ -801,7 +802,7 @@ namespace coder_compiler
 
     decrement_indent_level (os_src);
 
-    looping--;
+    loop_or_unwind.pop_back();
   }
 
   void
@@ -834,7 +835,7 @@ namespace coder_compiler
 
     if(expr) expr->accept(*this) ;
 
-    looping++;
+    loop_or_unwind.push_back(looping_context);
 
     os_src
       << "))\n" ;
@@ -854,7 +855,7 @@ namespace coder_compiler
 
     decrement_indent_level (os_src);
 
-    looping--;
+    loop_or_unwind.pop_back ();
   }
 
   void
@@ -1842,12 +1843,15 @@ namespace coder_compiler
   void
   code_generator::visit_return_command (octave::tree_return_command&)
   {
-    if (unwinding)
-      {
-        os_src << "throw return_unwind {};\n";
-      }
-    else
-      os_src << "goto Return;\n";
+    for (auto lu : loop_or_unwind)
+      if (lu == unwinding_context)
+        {
+          os_src << "throw return_unwind {};\n";
+
+          return;
+        }
+
+    os_src << "goto Return;\n";
   }
 
   void
@@ -2200,12 +2204,26 @@ namespace coder_compiler
   void
   code_generator::visit_unwind_protect_command (octave::tree_unwind_protect_command& cmd)
   {
-    unwinding++;
+    bool loopflag = false;
+    bool loop_propagates = loop_or_unwind.back () == unwinding_context;
+    bool return_propagates = false;
 
-    if(looping)
+    for (auto lu : loop_or_unwind)
+      if (lu == looping_context)
+        {
+          loopflag = true;
+        }
+      else if (lu == unwinding_context)
+        {
+          return_propagates = true;
+        }
+
+    if (loopflag)
       os_src << "UNWIND_PROTECT_LOOP(" ;
     else
       os_src << "UNWIND_PROTECT(" ;
+
+    loop_or_unwind.push_back(unwinding_context);
 
     increment_indent_level (os_src);
 
@@ -2228,14 +2246,19 @@ namespace coder_compiler
 
     increment_indent_level (os_src);
 
-    unwinding--;
+    loop_or_unwind.pop_back ();
 
     if (cleanup_code)
       cleanup_code->accept (*this);
 
     decrement_indent_level (os_src);
 
-    os_src << "})\n";
+    os_src << "}, " << return_propagates ;
+
+    if (loopflag)
+      os_src << ", " << loop_propagates;
+
+    os_src << ")\n";
 
     decrement_indent_level (os_src);
   }
@@ -2262,13 +2285,14 @@ namespace coder_compiler
 
     octave::tree_statement_list *list = cmd.body ();
 
-    looping++;
+    loop_or_unwind.push_back(looping_context);
+
     if (list)
       {
         list->accept (*this);
       }
 
-    looping--;
+    loop_or_unwind.pop_back ();
 
     decrement_indent_level (os_src);
 
@@ -2279,7 +2303,7 @@ namespace coder_compiler
   void
   code_generator::visit_do_until_command (octave::tree_do_until_command& cmd)
   {
-    looping++;
+    loop_or_unwind.push_back(looping_context);
 
     octave::tree_statement_list *list = cmd.body ();
 
@@ -2295,7 +2319,7 @@ namespace coder_compiler
     if (list)
       list->accept (*this);
 
-    looping--;
+    loop_or_unwind.pop_back ();
 
     octave::tree_expression *expr = cmd.condition ();
 
