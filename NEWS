@@ -1,4 +1,4 @@
-coder 1.6.78- 2021-12-07
+coder 1.6.8- 2021-12-07
 ---------------------
 
 * Fix crash due to unwind_protect bug
