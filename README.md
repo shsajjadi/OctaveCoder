@@ -94,6 +94,11 @@ Prints process of compilation.
 
 The build system internally calls the "mkoctfile" command. Additional options as a character string can be set by 'CompilerOptions' to be provided to the compiler through mkoctfile.
 
+### Known issues
+
+- .m files that contain call to functions like 'eval' and 'clear' are not suppoed to work when compiled to .oct file
+- Always call the generated oct files form a .m function file. It prevent runtime errors related to functions that contain mlock and munlock.
+ 
 ### TODO
 
 - Shared memory parallelism using parfor
