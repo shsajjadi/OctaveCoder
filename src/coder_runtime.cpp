@@ -1332,6 +1332,8 @@ template <int size>
     {\
       try_code\
     }\
+  catch (unwind_ex)\
+    { throw; }\
   catch (...)\
     {\
       recover_from_execution_excep ();\
@@ -1345,6 +1347,8 @@ template <int size>
     {\
       try_code\
     }\
+  catch (unwind_ex)\
+    { throw; }\
   catch (...)\
     {\
       recover_from_execution_excep ();\
