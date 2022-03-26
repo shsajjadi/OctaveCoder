@@ -1100,22 +1100,22 @@ namespace coder_compiler
 
     octave::tree_statement_list *list = cmd.commands ();
 
+    increment_indent_level (os_src);
+
+    os_src << "\n{\n";
+
+    increment_indent_level (os_src);
+
     if (list)
       {
-        increment_indent_level (os_src);
-
-        os_src << "\n{\n";
-
-        increment_indent_level (os_src);
-
         list->accept (*this);
-
-        decrement_indent_level (os_src);
-
-        os_src << "}\n";
-
-        decrement_indent_level (os_src);
       }
+
+    decrement_indent_level (os_src);
+
+    os_src << "}\n";
+
+    decrement_indent_level (os_src);
   }
 
   void
