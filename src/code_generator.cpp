@@ -15,6 +15,7 @@
 
 #include "code_generator.h"
 #include "coder_file.h"
+#include "lvalue_checker.h"
 
 #if OCTAVE_MAJOR_VERSION >= 7
   #define OCTAVE_DEPR_NS octave::
@@ -549,6 +550,7 @@ namespace coder_compiler
           }
       }
   }
+
   void
   code_generator::visit_compound_binary_expression (octave::tree_compound_binary_expression& expr)
   {
@@ -771,6 +773,33 @@ namespace coder_compiler
               }
           }
       }
+  }
+
+  static std::string extract_loop_var ( octave::tree_expression *expr)
+  {
+    if (expr)
+      {
+        if (expr->is_index_expression ())
+          {
+            octave::tree_index_expression *idx = static_cast<octave::tree_index_expression *> (expr);
+
+            if (idx)
+              {
+                octave::tree_expression *e = idx->expression ();
+
+                if (e && e->is_identifier ())
+                  {
+                    return static_cast<octave::tree_identifier *> (e)->name ();
+                  }
+              }
+          }
+        else if (expr->is_identifier ())
+          {
+            return static_cast<octave::tree_identifier *> (expr)->name ();
+          }
+      }
+
+    return {};
   }
 
   void
