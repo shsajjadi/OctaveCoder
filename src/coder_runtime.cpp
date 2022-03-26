@@ -5210,6 +5210,19 @@ namespace coder
     ult.assign (octave_value::op_asn_eq, err, idx);
   }
 
+  template<typename T, typename S>
+  T Dynamic_cast (S *s)
+  {
+    static const int id = std::remove_pointer<T>::type::static_type_id ();
+
+    if (s->type_id () == id)
+      {
+        return static_cast<T> (s);
+      }
+
+    return nullptr;
+  }
+
   class for_loop_rep
   {
 
@@ -5362,7 +5375,7 @@ namespace coder
 
       keys = rhs.val->map_keys ();
 
-      is_scalar_struct = dynamic_cast <octave_scalar_struct*> (rhs.val);
+      is_scalar_struct = Dynamic_cast <octave_scalar_struct*> (rhs.val);
 
       if (is_scalar_struct)
         tmp_scalar_val = rhs.val->scalar_map_value ();
