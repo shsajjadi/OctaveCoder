@@ -1631,7 +1631,7 @@ namespace coder_compiler
 
     std::ostringstream os;
 
-    print_value(os, m_value, val.original_text());
+    print_value(os, m_value);
 
     std::string text_rep = os.str();
 
