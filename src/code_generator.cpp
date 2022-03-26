@@ -942,7 +942,7 @@ namespace coder_compiler
 #endif
 
   void
-  code_generator::visit_octave_user_script (octave_user_script& fcn)
+  code_generator::visit_octave_user_script (octave_user_script&)
   {
     warning("user script is not supported!");
   }

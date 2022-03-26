@@ -144,6 +144,8 @@ the global and persistent variables of other .oct files.
 @seealso{mkoctfile}
 @end deftypefn)helpstr")
 {
+  (void)nargout;
+
   int n = args.length ();
 
   std::string cache_dir;
