@@ -1714,7 +1714,6 @@ template <int size>
 
 namespace coder
 {
-#if OCTAVE_MAJOR_VERSION >= 7
   // don't do the trick!
   // https://stackoverflow.com/a/3173080/6579744
 
@@ -1734,6 +1733,7 @@ namespace coder
 
   GETMEMBER(octave_base_value_count, octave_base_value, octave::refcount<octave_idx_type>, count)
 
+#if OCTAVE_MAJOR_VERSION >= 7
   static void grab (octave_base_value * val)
   {
     ++(val->*get(octave_base_value_count ()));
