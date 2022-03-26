@@ -76,11 +76,13 @@ namespace coder_compiler
 
   semantic_analyser::semantic_analyser(  )
   {
+    find_resolvabale_names_in_octave_path ();
     init_builtins();
   }
 
   semantic_analyser::semantic_analyser( const octave_map& cache_index )
   {
+    find_resolvabale_names_in_octave_path ();
     build_dependency_graph (cache_index);
     init_builtins();
   }
@@ -88,7 +90,7 @@ namespace coder_compiler
   void
   semantic_analyser::visit_argument_list (octave::tree_argument_list& lst)
   {
-    octave::tree_argument_list::iterator p = lst.begin ();
+    auto p = lst.begin ();
 
     while (p != lst.end ())
       {
@@ -471,22 +473,22 @@ namespace coder_compiler
 
     if (param_list)
       {
-        for (octave::tree_decl_elt *elt : *param_list)
+        for (octave::tree_decl_elt *elt : * param_list)
           {
             octave::tree_identifier *id = elt->ident ();
 
             if (id && !id->is_black_hole())
               {
-                  insert_symbol(id->name(), symbol_type::ordinary);
+                  insert_formal_symbol(id->name());
               }
           }
 
         bool takes_varargs = param_list->takes_varargs ();
 
         if (takes_varargs)
-          insert_symbol("varargin", symbol_type::ordinary);
+          insert_formal_symbol("varargin");
 
-        for (octave::tree_decl_elt *elt : *param_list)
+        for (octave::tree_decl_elt *elt : * param_list)
           {
             octave::tree_expression *expr = elt->expression ();
 
@@ -550,7 +552,7 @@ namespace coder_compiler
 
     if (ret_list)
       {
-        for (octave::tree_decl_elt *elt : *ret_list)
+        for (octave::tree_decl_elt *elt : * ret_list)
           {
             if(elt)
               {
@@ -558,7 +560,7 @@ namespace coder_compiler
 
                 if (id && !id->is_black_hole())
                   {
-                    insert_symbol(id->name(), symbol_type::ordinary);
+                    insert_formal_symbol(id->name());
                   }
               }
           }
@@ -566,20 +568,19 @@ namespace coder_compiler
         bool takes_var_return = fcnn.takes_var_return ();
 
         if (takes_var_return)
-          insert_symbol("varargout", symbol_type::ordinary);
-
+          insert_formal_symbol("varargout");
       }
 
     if (param_list)
       {
-        for (octave::tree_decl_elt *elt : *param_list)
+        for (octave::tree_decl_elt *elt : * param_list)
           {
             if(elt)
               {
                 octave::tree_identifier *id = elt->ident ();
                 if (id && !id->is_black_hole())
                   {
-                    insert_symbol(id->name(), symbol_type::ordinary);
+                    insert_formal_symbol(id->name());
                   }
               }
           }
@@ -587,14 +588,14 @@ namespace coder_compiler
         bool takes_varargs = param_list->takes_varargs ();
 
         if (takes_varargs)
-          insert_symbol("varargin", symbol_type::ordinary);
+          insert_formal_symbol("varargin");
       }
 
     handles.emplace();
 
     if (param_list)
       {
-        for (octave::tree_decl_elt *elt : *param_list)
+        for (octave::tree_decl_elt *elt : * param_list)
           {
             if (elt)
             {
@@ -858,6 +859,19 @@ namespace coder_compiler
 
     for(current_file_it = task_queue.begin(); current_file_it != task_queue.end(); ++current_file_it)
       {
+        file_directory_it = &directory_table[current_file()->path];
+
+        auto p = path_map[current_file()->path];
+
+        if (p)
+          current_path_map = p;
+        else
+          {
+            path_map[current_file()->path] = std::shared_ptr<std::set<std::string>> {new std::set<std::string> {}};
+
+            current_path_map = path_map[current_file()->path];
+          }
+
         local_functions.clear();
 
         if (current_file()->fcn.is_user_function())
@@ -910,15 +924,36 @@ namespace coder_compiler
                 fcn = f_local->second;
 
                 file = current_file();
+
+                sym = std::make_shared<coder_symbol>(name, fcn, file);
               }
             else
               {
-                fcn = find_function (name);
+                auto symbol_it = file_directory_it->find (coder_symbol_ptr (new coder_symbol (name)));
+
+                if (symbol_it != file_directory_it->end ())
+                  {
+                    sym = *symbol_it;
+
+                    add_fcn_to_task_queue(current_file (), sym->name, sym->fcn);
+
+                    table.insert_symbol(sym, symbol_type::ordinary);
+
+                    return sym;
+                  }
+
+                if (resolvable_path_names->find (name) != resolvable_path_names->end ()
+                  || current_path_map->find (name) != current_path_map->end ())
+                  {
+                    fcn = find_function (name);
+                  }
 
                 file = add_fcn_to_task_queue(current_file (), name, fcn);
-              }
 
-            sym = std::make_shared<coder_symbol>(name, fcn, file);
+                sym = std::make_shared<coder_symbol>(name, fcn, file);
+
+                file_directory_it->insert(sym);
+              }
 
             table.insert_symbol(sym, symbol_type::ordinary);
           }
@@ -973,18 +1008,50 @@ namespace coder_compiler
             fcn = f_local->second;
 
             file = current_file();
+
+            sym = std::make_shared<coder_symbol>(name, fcn, file);
           }
         else
           {
-            fcn = find_function (name);
+            auto symbol_it = file_directory_it->find (coder_symbol_ptr (new coder_symbol (name)));
+
+            if (symbol_it != file_directory_it->end () && type == symbol_type::ordinary)
+              {
+                sym = *symbol_it;
+
+                table.insert_symbol(sym, type);
+
+                add_fcn_to_task_queue(current_file (), sym->name, sym->fcn);
+
+                return sym;
+              }
+                if (resolvable_path_names->find (name) != resolvable_path_names->end ()
+                  || current_path_map->find (name) != current_path_map->end ())
+                  {
+                    fcn = find_function (name);
+                  }
 
             file = add_fcn_to_task_queue(current_file (), name, fcn);
-          }
 
-        sym = std::make_shared<coder_symbol>(name, fcn, file);
+            sym = std::make_shared<coder_symbol>(name, fcn, file);
+
+            file_directory_it->insert (sym);
+          }
       }
 
     table.insert_symbol(sym, type);
+
+    return sym;
+  }
+
+  coder_symbol_ptr
+  semantic_analyser::insert_formal_symbol(const std::string& name)
+  {
+    auto& table = current_file()->current_local_function();
+
+    auto sym = std::make_shared<coder_symbol>(name, octave_value (), coder_file_ptr ());
+
+    table.insert_symbol(sym, symbol_type::ordinary);
 
     return sym;
   }
@@ -1202,9 +1269,9 @@ namespace coder_compiler
                         for (const auto& member: file->local_functions)
                           {
                             if (member.name()  == sym_name)
-                            {
-                              return file;
-                            }
+                              {
+                                return file;
+                              }
                           }
 
                         file->add_new_local_function(sym_name);
@@ -1287,7 +1354,20 @@ namespace coder_compiler
 
     scope_stack.push (fcnn->scope ());
 
+    unwind unw ([&](){scope_stack.pop ();});
+
     auto dep_old = external_symbols.at(file);
+
+    auto& directory_idx  = directory_table [file->path];
+
+    auto path_idx = path_map[file->path];
+
+    if (! path_idx)
+      {
+        path_map[file->path] = std::shared_ptr<std::set<std::string>> {new std::set<std::string> {}};
+
+        path_idx = path_map[file->path];
+      }
 
     for (const auto& callee : dep_old)
       {
@@ -1295,18 +1375,39 @@ namespace coder_compiler
 
         for (const auto& sym_name : callee.second)
           {
-            octave_value new_src = find_function (sym_name);
+            coder_file_ptr new_file;
 
-            coder_file_ptr new_file = add_fcn_to_task_queue (file, sym_name, new_src);
+            auto symbol_it = directory_idx.find (coder_symbol_ptr (new coder_symbol (sym_name)));
+
+            if (symbol_it != directory_idx.end ())
+              {
+                new_file = (* symbol_it)->file;
+
+                add_fcn_to_task_queue (file, sym_name, (* symbol_it)->fcn);
+              }
+            else
+              {
+                 octave_value new_src;
+
+                if (resolvable_path_names->find (sym_name) != resolvable_path_names->end ()
+                  || path_idx->find (sym_name) != path_idx->end ())
+                  {
+                    new_src = find_function (sym_name);
+                  }
+
+                new_file = add_fcn_to_task_queue (file, sym_name, new_src);
+
+                auto sym = std::make_shared<coder_symbol>(sym_name, new_src, new_file);
+
+                directory_idx.insert (sym);
+              }
 
             if (f != new_file)
               {
-                old_files.push_back({f, new_file,sym_name});
+                old_files.push_back({f, new_file, sym_name});
               }
           }
       }
-
-    scope_stack.pop ();
 
     auto& dep = dependency_graph.at(file);
 
@@ -1880,5 +1981,130 @@ namespace coder_compiler
   semantic_analyser::find_function (const std::string& name)
   {
     return scope_stack.top ().find_function (name);
+  }
+
+  static std::string
+  extract_valid_name (const std::string& n)
+  {
+    size_t s = n.size ();
+
+    if(s>2 && n[s-1]=='m'&& n[s-2] == '.')
+      {
+        return n.substr(0, s-2);
+      }
+
+    if ((s > 1 && ( n[0] == '@' || n[0] == '+')))
+      {
+        return n.substr(1, s-1);
+      }
+
+    if(s>4 && n[s-1]=='t'&& n[s-2] == 'c' && n[s-3] == 'o' && n[s-4] == '.')
+      {
+        return n.substr(0, s-4);
+      }
+
+    if(s>4 && n[s-1]=='x'&& n[s-2] == 'e' && n[s-3] == 'm' && n[s-4] == '.')
+      {
+        return n.substr(0, s-4);
+      }
+
+    return "" ;
+  }
+
+  void semantic_analyser::find_resolvabale_names_in_octave_path ()
+  {
+    path_map["<>"] = std::shared_ptr<std::set<std::string>> {new std::set<std::string> {}};
+
+    resolvable_path_names = path_map["<>"];
+
+    octave::symbol_table& octave_symtab = octave::interpreter::the_interpreter ()->get_symbol_table();
+
+    octave::load_path& lp = octave::interpreter::the_interpreter ()->get_load_path ();
+
+    octave::tree_evaluator& ev = octave::interpreter::the_interpreter ()->get_evaluator ();
+
+    string_vector bif = octave_symtab.built_in_function_names ();
+
+    string_vector cmd = octave_symtab.cmdline_function_names ();
+
+    std::list<std::string> autoloads = ev.autoloaded_functions ();
+
+    string_vector dirs = lp.dirs ();
+
+    octave_idx_type len = dirs.numel ();
+
+    for (octave_idx_type i = 0; i < len; i++)
+      {
+        std::string d = dirs[i];
+
+        auto& syms = path_map[d];
+
+        syms =  std::shared_ptr<std::set<std::string>> {new std::set<std::string> {}};
+
+        find_resolvabale_names (resolvable_path_names, d);
+      }
+
+    len = bif.numel ();
+
+    for (octave_idx_type i = 0; i < len; i++)
+      {
+        resolvable_path_names->insert (bif(i));
+      }
+
+    len = cmd.numel ();
+
+    for (octave_idx_type i = 0; i < len; i++)
+      {
+        resolvable_path_names->insert (cmd(i));
+      }
+
+    for (auto& fcn : autoloads)
+      {
+        resolvable_path_names->insert (fcn);
+      }
+  }
+  void semantic_analyser::find_resolvabale_names (std::shared_ptr<std::set<std::string>> resolvable_names, const std::string& d)
+  {
+    octave::sys::dir_entry dir (d);
+
+    if (dir)
+      {
+        string_vector flist = dir.read ();
+
+        octave_idx_type len = flist.numel ();
+
+        bool has_private_subdir = false;
+
+        for (octave_idx_type i = 0; i < len; i++)
+          {
+            std::string n = flist[i];
+
+            if (n == "private")
+              {
+                has_private_subdir = true;
+                continue;
+              }
+
+            std::string sym = extract_valid_name (n);
+
+            if (sym.empty ())
+              continue;
+
+            resolvable_names->insert (sym);
+          }
+
+        if (has_private_subdir)
+          {
+            auto& pv_set = path_map[d];
+
+            pv_set = std::shared_ptr<std::set<std::string>> {new std::set<std::string> {}};
+
+            std::string pv_dir = octave::sys::file_ops::concat (d, "private");
+
+            path_map[pv_dir] = pv_set;
+
+            find_resolvabale_names (pv_set, pv_dir);
+          }
+      }
   }
 }

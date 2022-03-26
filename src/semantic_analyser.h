@@ -386,6 +386,9 @@ namespace coder_compiler
     coder_symbol_ptr
     insert_symbol(const std::string& name, symbol_type type);
 
+    coder_symbol_ptr
+    insert_formal_symbol(const std::string& name);
+
     coder_file_ptr
     current_file();
 
@@ -418,6 +421,10 @@ namespace coder_compiler
 
     octave_value find_function (const std::string& name);
 
+    void find_resolvabale_names_in_octave_path ();
+
+     void find_resolvabale_names (std::shared_ptr<std::set<std::string>> resolvable_names, const std::string& d);
+
     struct compare_file_ptr
     {
       bool operator() (const coder_file_ptr& lhs, const coder_file_ptr& rhs) const
@@ -449,5 +456,15 @@ namespace coder_compiler
     std::map <std::string , coder_file_ptr> oct_list;
 
     std::stack<function_finder> scope_stack;
+
+    std::map<std::string, std::set<coder_symbol_ptr, typename symscope::compare_symbol>> directory_table;
+
+    std::set<coder_symbol_ptr, typename symscope::compare_symbol> *file_directory_it;
+
+    std::map<std::string, std::shared_ptr<std::set<std::string>>> path_map;
+
+    std::shared_ptr<std::set<std::string>> resolvable_path_names;
+
+    std::shared_ptr<std::set<std::string>> current_path_map;
   };
 }
