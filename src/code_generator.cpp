@@ -782,6 +782,20 @@ namespace coder_compiler
 
     octave::tree_statement_list *list = cmd.body ();
 
+    int fast_loop = 1;
+
+    if (list)
+      {
+        try
+          {
+            lvalue_checker {m_file , list, extract_loop_var (lhs)};
+          }
+        catch (int v)
+          {
+            fast_loop = int(v == 0);
+          }
+      }
+
     os_src
       << "for (auto i : for_loop (" ;
 
@@ -794,6 +808,8 @@ namespace coder_compiler
     loop_or_unwind.push_back(looping_context);
 
     os_src
+      << ", "
+      << fast_loop
       << "))\n" ;
 
     increment_indent_level (os_src);

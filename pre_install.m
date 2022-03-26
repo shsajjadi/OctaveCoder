@@ -9,6 +9,7 @@ function pre_install (in)
       'dgraph'
       'coder_file'
       'coder_symtab'
+      'lvalue_checker'
       'semantic_analyser'
       'code_generator'
       'coder_runtime'

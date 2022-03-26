@@ -1350,7 +1350,7 @@ template <int size>
     for_loop(for_loop &&)=delete;
     for_loop& operator=(for_loop const&)=delete;
     for_loop& operator=(for_loop &&)=delete;
-    for_loop (Ptr lhs, Ptr expr);
+    for_loop (Ptr lhs, Ptr expr, bool fast_loop);
     for_iterator begin() ;
     for_iterator end() ;
     ~for_loop();
@@ -5225,9 +5225,8 @@ namespace coder
 
   class for_loop_rep
   {
-
   public:
-    for_loop_rep (Ptr lhs, Ptr expr):
+    for_loop_rep (Ptr lhs, Ptr expr, bool fast_loop):
       val (expr->evaluate (1), false),
       looptype (
         val.is_range () ? range_loop
@@ -5239,7 +5238,10 @@ namespace coder
       rng (),
       steps(),
       idx (),
-    ult(lhs->lvalue (ult_idx))
+      ult(lhs->lvalue (ult_idx)),
+      blackhole (ult.is_black_hole ()),
+      m_fast_loop (fast_loop),
+      m_first_loop (true)
     {
       switch (looptype)
         {
@@ -5247,9 +5249,7 @@ namespace coder
           {
             rng = val.range_value ();
 
-            val = octave_value (0.0);
-
-            base_val = val.internal_rep ();
+            ult.assign (octave_value::op_asn_eq, Matrix (), ult_idx);
 
             steps = rng.numel ();
 
@@ -5299,6 +5299,8 @@ namespace coder
                 idx (iidx) = iidx;
 
                 base_val = idx.xelem (iidx).internal_rep ();
+
+                ult.assign (octave_value::op_asn_eq, Matrix (), ult_idx);
               }
             else
               {
@@ -5319,18 +5321,58 @@ namespace coder
 
     void set_loop_val (octave_idx_type i)
     {
+      if (blackhole)
+        return;
+
       if (looptype == range_loop)
         {
-          static_cast<octave_scalar*>(base_val)->scalar_ref() = rng.elem (i);
+          auto rhs = rng.elem (i);
 
-          ult.assign (octave_value::op_asn_eq, val, ult_idx);
+          auto& m_sym = *ult.m_sym;
+
+          if (m_first_loop)
+            {
+              m_first_loop = false;
+
+              octave_value val {m_sym};
+
+              val = rhs;
+
+              m_sym = val.internal_rep ();
+
+              grab (m_sym);
+
+              return;
+            }
+
+          if (ult_idx.empty () && (m_fast_loop || Dynamic_cast<octave_scalar *>(m_sym)))
+            {
+              if (m_sym->*get(octave_base_value_count ()) == 1)
+                static_cast<octave_base_scalar<double> *>(m_sym)->scalar_ref() = rhs;
+              else
+                {
+                  octave_value val {m_sym};
+
+                  val = rhs;
+
+                  m_sym = val.internal_rep ();
+
+                  grab (m_sym);
+                }
+
+              return;
+            }
+
+          ult.assign (octave_value::op_asn_eq, rhs, ult_idx);
         }
       else if (looptype == matrix_loop)
         {
           static_cast<octave_scalar*>(base_val)->scalar_ref() = i + 1;
-
+#if OCTAVE_MAJOR_VERSION >= 7
+          octave_value tmp = val.index_op (idx);
+#else
           octave_value tmp = val.do_index_op (idx);
-
+#endif
           ult.assign (octave_value::op_asn_eq, tmp, ult_idx);
         }
     }
@@ -5356,6 +5398,12 @@ namespace coder
     coder_lvalue ult;
 
     coder_value_list ult_idx;
+
+    const bool blackhole;
+
+    const bool m_fast_loop;
+
+    bool m_first_loop;
   };
 
   class struct_loop_rep
@@ -5447,8 +5495,8 @@ namespace coder
 
   };
 
-  for_loop::for_loop (Ptr lhs, Ptr expr)
-  : rep (new for_loop_rep(lhs, expr))
+  for_loop::for_loop (Ptr lhs, Ptr expr, bool fast_loop)
+  : rep (new for_loop_rep(lhs, expr, fast_loop))
   {}
 
   for_iterator for_loop::begin()  { return rep->begin (); }
