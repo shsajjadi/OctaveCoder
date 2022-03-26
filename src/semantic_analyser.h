@@ -178,7 +178,28 @@ namespace coder_compiler
 
     void
     visit_complex_for_command (octave::tree_complex_for_command&);
+#if OCTAVE_MAJOR_VERSION >= 7
+    void
+    visit_spmd_command (octave::tree_spmd_command&);
 
+    void
+    visit_arguments_block (octave::tree_arguments_block&);
+
+    void
+    visit_args_block_attribute_list (octave::tree_args_block_attribute_list&);
+
+    void
+    visit_args_block_validation_list (octave::tree_args_block_validation_list&);
+
+    void
+    visit_arg_validation (octave::tree_arg_validation&);
+
+    void
+    visit_arg_size_spec (octave::tree_arg_size_spec&);
+
+    void
+    visit_arg_validation_fcns (octave::tree_arg_validation_fcns&);
+#endif
 #if OCTAVE_MAJOR_VERSION < 6
     void
     visit_funcall (octave::tree_funcall& /* fc */)

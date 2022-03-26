@@ -164,6 +164,8 @@ namespace coder
     const char *m_type;
 
     octave_idx_type m_nel;
+
+    friend class for_loop_rep;
   };
 
   template <typename Expression>
@@ -219,6 +221,8 @@ namespace coder
     virtual coder_lvalue lvalue(coder_value_list&){return coder_lvalue();}
 
     virtual bool is_Symbol() {return false;}
+
+    virtual bool is_Tilde() {return false;}
 
     operator bool();
   };
@@ -363,6 +367,78 @@ namespace coder
     double val;
   };
 
+  struct int8_literal : Expression
+  {
+    explicit int8_literal(unsigned long long int d) :val(d){  }
+
+    coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
+
+    unsigned long long int val;
+  };
+
+  struct int16_literal : Expression
+  {
+    explicit int16_literal(unsigned long long int d) :val(d){  }
+
+    coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
+
+    unsigned long long int val;
+  };
+
+  struct int32_literal : Expression
+  {
+    explicit int32_literal(unsigned long long int d) :val(d){  }
+
+    coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
+
+    unsigned long long int val;
+  };
+
+  struct int64_literal : Expression
+  {
+    explicit int64_literal(unsigned long long int d) :val(d){  }
+
+    coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
+
+    unsigned long long int val;
+  };
+
+  struct uint8_literal : Expression
+  {
+    explicit uint8_literal(unsigned long long int d) :val(d){  }
+
+    coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
+
+    unsigned long long int val;
+  };
+
+  struct uint16_literal : Expression
+  {
+    explicit uint16_literal(unsigned long long int d) :val(d){  }
+
+    coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
+
+    unsigned long long int val;
+  };
+
+  struct uint32_literal : Expression
+  {
+    explicit uint32_literal(unsigned long long int d) :val(d){  }
+
+    coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
+
+    unsigned long long int val;
+  };
+
+  struct uint64_literal : Expression
+  {
+    explicit uint64_literal(unsigned long long int d) :val(d){  }
+
+    coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
+
+    unsigned long long int val;
+  };
+
   struct complex_literal : Expression
   {
     explicit complex_literal(double d) :val(d){ }
@@ -382,41 +458,52 @@ namespace coder
     return double_literal(double(val));
   }
 
+  inline int8_literal operator"" _i8(unsigned long long int val)
+  {
+    return int8_literal(val);
+  }
+
+  inline int16_literal operator"" _i16(unsigned long long int val)
+  {
+    return int16_literal(val);
+  }
+
+  inline int32_literal operator"" _i32(unsigned long long int val)
+  {
+    return int32_literal(val);
+  }
+
+  inline int64_literal operator"" _i64(unsigned long long int val)
+  {
+    return int64_literal(val);
+  }
+
+  inline uint8_literal operator"" _ui8(unsigned long long int val)
+  {
+    return uint8_literal(val);
+  }
+
+  inline uint16_literal operator"" _ui16(unsigned long long int val)
+  {
+    return uint16_literal(val);
+  }
+
+  inline uint32_literal operator"" _ui32(unsigned long long int val)
+  {
+    return uint32_literal(val);
+  }
+
+  inline uint64_literal operator"" _ui64(unsigned long long int val)
+  {
+    return uint64_literal(val);
+  }
+
   inline complex_literal operator"" _i(unsigned long long int val)
-  {
-    return complex_literal(double(val));
-  }
-  inline complex_literal operator"" _j(unsigned long long int val)
-  {
-    return complex_literal(double(val));
-  }
-
-  inline complex_literal operator"" _I(unsigned long long int val)
-  {
-    return complex_literal(double(val));
-  }
-
-  inline complex_literal operator"" _J(unsigned long long int val)
   {
     return complex_literal(double(val));
   }
 
   inline complex_literal operator"" _i(long double d)
-  {
-    return complex_literal(double(d));
-  }
-
-  inline complex_literal operator"" _j(long double d)
-  {
-    return complex_literal(double(d));
-  }
-
-  inline complex_literal operator"" _I(long double d)
-  {
-    return complex_literal(double(d));
-  }
-
-  inline complex_literal operator"" _J(long double d)
   {
     return complex_literal(double(d));
   }
@@ -1046,6 +1133,7 @@ namespace coder
   struct Tilde : public LightweightExpression
   {
     coder_lvalue lvalue(coder_value_list&);
+    bool is_Tilde () {return true;}
   };
 
   bool
@@ -1615,8 +1703,47 @@ template <int size>
 #include "coder.h"
 #endif
 
+#if OCTAVE_MAJOR_VERSION >= 7
+  #define OCTAVE_DEPR_NS octave::
+  #define OCTAVE_RANGE octave::range<double>
+#else
+  #define OCTAVE_DEPR_NS ::
+  #define OCTAVE_RANGE ::Range
+#endif
+
+
 namespace coder
 {
+#if OCTAVE_MAJOR_VERSION >= 7
+  // don't do the trick!
+  // https://stackoverflow.com/a/3173080/6579744
+
+  template<typename Tag, typename Tag::type M>
+  struct Rob {
+    friend typename Tag::type get(Tag) {
+      return M;
+    }
+  };
+
+  #define GETMEMBER(alias, classtype, membertype, membername)\
+  struct alias { \
+    typedef membertype classtype::*type;\
+    friend type get(alias);\
+  };\
+  template struct Rob<alias, &classtype::membername>;
+
+  GETMEMBER(octave_base_value_count, octave_base_value, octave::refcount<octave_idx_type>, count)
+
+  static void grab (octave_base_value * val)
+  {
+    ++(val->*get(octave_base_value_count ()));
+  }
+#else
+  static void grab (octave_base_value * val)
+  {
+    val->grab ();
+  }
+#endif
   coder_value::~coder_value()
   {
     if (val)
@@ -1645,7 +1772,7 @@ namespace coder
   {
     val = v.internal_rep ();
 
-    val->grab ();
+    grab (val);
   }
 
   class value_list_pool
@@ -2161,7 +2288,7 @@ namespace coder
 
     *m_sym = tmp.internal_rep ();
 
-    (*m_sym)->grab ();
+    grab (*m_sym);
   }
 
   void
@@ -2184,7 +2311,7 @@ namespace coder
 
         *m_sym = tmp.internal_rep ();
 
-        (*m_sym)->grab ();
+        grab (*m_sym);
       }
   }
 
@@ -2242,15 +2369,20 @@ namespace coder
     if (! is_black_hole ())
       {
         octave_value tmp(*m_sym);
-
+#if OCTAVE_MAJOR_VERSION >= 7
+        if (m_idx.empty ())
+          tmp.non_const_unary_op ((octave_value::unary_op)op);
+        else
+          tmp.non_const_unary_op ((octave_value::unary_op)op, m_type, m_idx);
+#else
         if (m_idx.empty ())
           tmp.do_non_const_unary_op ((octave_value::unary_op)op);
         else
           tmp.do_non_const_unary_op ((octave_value::unary_op)op, m_type, m_idx);
-
+#endif
         *m_sym = tmp.internal_rep ();
 
-        (*m_sym)->grab ();
+        grab (*m_sym);
       }
   }
 
@@ -2265,7 +2397,7 @@ namespace coder
       {
         if (m_idx.empty ())
           {
-            (*m_sym)->grab ();
+            grab (*m_sym);
 
             return coder_value(*m_sym);
           }
@@ -2305,7 +2437,7 @@ namespace coder
       {
         expr_result = octave_value(indexed_object, true);
       }
-     else
+    else
       {
         try
           {
@@ -2414,7 +2546,7 @@ namespace coder
 
     value = tmp.internal_rep ();
 
-    value->grab ();
+    grab (value);
 
     reference = this;
   }
@@ -2424,7 +2556,7 @@ namespace coder
     value = other.get_value ();
 
     if (value)
-      value->grab ();
+      grab (value);
 
     reference = this;
   }
@@ -2457,7 +2589,7 @@ namespace coder
         value = tmp;
 
         if (value )
-          value->grab();
+          grab(value);
       }
 
     reference = this;
@@ -2564,7 +2696,7 @@ namespace coder
             {
               value = klass_meth.internal_rep ();
 
-              value->grab ();
+              grab (value);
             }
 #else
           if (klass_meth)
@@ -2592,7 +2724,7 @@ namespace coder
             {
               value = pack_sym.internal_rep ();
 
-              value->grab ();
+              grab (value);
             }
 #else
           if (pack_sym)
@@ -2619,7 +2751,7 @@ namespace coder
           {
             fcn = value->function_value (true);
 
-            coder_function_base* generated_fcn = dynamic_cast<coder_function_base*> (fcn);
+            coder_function_base* generated_fcn = dynamic_cast<coder_function_base *> (fcn);
 
             coder_value retval;
 
@@ -2661,7 +2793,7 @@ namespace coder
               }
           }
 
-        value->grab ();
+        grab (value);
 
         return coder_value(value);
       }
@@ -2684,9 +2816,7 @@ namespace coder
           {
             fcn = value->function_value (true);
 
-            coder_function_base* generated_fcn = dynamic_cast<coder_function_base*> (fcn);
-
-            octave_value_list retval;
+            coder_function_base* generated_fcn = dynamic_cast<coder_function_base *> (fcn);
 
             if (generated_fcn)
               {
@@ -2723,7 +2853,7 @@ namespace coder
   void
   Symbol::call (coder_value_list& output, int nargout, const octave_value_list& args)
   {
-    coder_function_base* fcn = dynamic_cast<coder_function_base*>(value);
+    coder_function_base* fcn = dynamic_cast<coder_function_base *> (value);
 
     if (fcn)
       fcn->call (output, nargout, args);
@@ -2921,7 +3051,7 @@ namespace coder
               {
                 coder_value_list first_args;
 
-                coder_function_base* generated_fcn = dynamic_cast<coder_function_base*> (fcn);
+                coder_function_base* generated_fcn = dynamic_cast<coder_function_base *> (fcn);
 
                 if (generated_fcn)
                   {
@@ -3382,6 +3512,46 @@ namespace coder
     return (octave_value(double(val)));
   }
 
+  coder_value int8_literal::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
+  {
+    return (octave_value(octave_int8(val)));
+  }
+
+  coder_value int16_literal::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
+  {
+    return (octave_value(octave_int16(val)));
+  }
+
+  coder_value int32_literal::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
+  {
+    return (octave_value(octave_int32(val)));
+  }
+
+  coder_value int64_literal::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
+  {
+    return (octave_value(octave_int64(val)));
+  }
+
+  coder_value uint8_literal::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
+  {
+    return (octave_value(octave_uint8(val)));
+  }
+
+  coder_value uint16_literal::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
+  {
+    return (octave_value(octave_uint16(val)));
+  }
+
+  coder_value uint32_literal::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
+  {
+    return (octave_value(octave_uint32(val)));
+  }
+
+  coder_value uint64_literal::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
+  {
+    return (octave_value(octave_uint64(val)));
+  }
+
   coder_value complex_literal::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
   {
     return (octave_value(Complex (0.0, val)));
@@ -3395,13 +3565,26 @@ namespace coder
     octave_value right ( b->evaluate(nargout,endkey,short_circuit), false);
 
     octave::type_info& ti = octave::interpreter::the_interpreter ()->get_type_info ();
-
+#if OCTAVE_MAJOR_VERSION >= 7
+    return (octave::binary_op (ti, op, left, right));
+#else
     return (::do_binary_op (ti, op, left, right));
+#endif
   }
 
   coder_value
   unary_expr(Ptr a, int nargout, const Endindex& endkey, bool short_circuit, octave_value::unary_op op)
   {
+#if OCTAVE_MAJOR_VERSION >= 7
+    octave_value val ( a->evaluate(nargout,endkey,short_circuit), false);
+
+    if (val.get_count () == 1)
+      return val.non_const_unary_op ( op);
+
+    octave::type_info& ti = octave::interpreter::the_interpreter () ->get_type_info ();
+
+    return (octave::unary_op (ti, op, val));
+#else
     octave_value val ( a->evaluate(nargout,endkey,short_circuit), false);
 
     if (val.get_count () == 1)
@@ -3410,6 +3593,7 @@ namespace coder
     octave::type_info& ti = octave::interpreter::the_interpreter () ->get_type_info ();
 
     return (::do_unary_op (ti, op, val));
+#endif
   }
 
   coder_value
@@ -3446,8 +3630,11 @@ namespace coder
     octave_value left ( a->evaluate(nargout,endkey,short_circuit), false);
 
     octave::type_info& ti = octave::interpreter::the_interpreter () ->get_type_info ();
-
+#if OCTAVE_MAJOR_VERSION >= 7
+    return (octave::unary_op (ti, op, left));
+#else
     return (::do_unary_op (ti, op, left));
+#endif
   }
 
   coder_value
@@ -3507,8 +3694,11 @@ namespace coder
         if (b.is_defined ())
           {
             octave::type_info& ti = octave::interpreter::the_interpreter () ->get_type_info ();
-
+#if OCTAVE_MAJOR_VERSION >= 7
+            val = octave::binary_op (ti, op, a, b);
+#else
             val = ::do_binary_op (ti, op, a, b);
+#endif
           }
       }
 
@@ -3633,8 +3823,11 @@ namespace coder
       octave_value(1.0));
 
     octave_value ov_limit ( limit->evaluate(1,endkey,short_circuit), false);
-
+#if OCTAVE_MAJOR_VERSION >= 7
+    return (octave::colon_op (ov_base, ov_increment, ov_limit, true));
+#else
     return (::do_colon_op (ov_base, ov_increment, ov_limit, true));
+#endif
   }
 
   coder_value
@@ -3700,8 +3893,11 @@ namespace coder
     octave_value right ( b->evaluate( 1,endkey,short_circuit), false);
 
     octave::type_info& ti = octave::interpreter::the_interpreter () ->get_type_info ();
-
+#if OCTAVE_MAJOR_VERSION >= 7
+    return (octave::binary_op (ti, octave_value::op_el_and, left, right));
+#else
     return (::do_binary_op (ti, octave_value::op_el_and, left, right));
+#endif
   }
 
   coder_value
@@ -3731,8 +3927,11 @@ namespace coder
     octave_value right ( b->evaluate( 1,endkey,short_circuit), false);
 
     octave::type_info& ti = octave::interpreter::the_interpreter () ->get_type_info ();
-
+#if OCTAVE_MAJOR_VERSION >= 7
+    return (octave::binary_op (ti, octave_value::op_el_or, left, right));
+#else
     return (::do_binary_op (ti, octave_value::op_el_or, left, right));
+#endif
   }
 
   coder_value
@@ -4319,7 +4518,7 @@ namespace coder
   coder_value
   Anonymous::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
   {
-    value.val->grab();
+    grab(value.val);
     return  coder_value(value.val);
   }
 
@@ -4332,7 +4531,7 @@ namespace coder
   coder_value
   NestedHandle::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
   {
-    value.val->grab();
+    grab(value.val);
     return  coder_value(value.val);
   }
 
@@ -4379,12 +4578,12 @@ namespace coder
         if (current_row.empty ())
           current_row.push_back (::Matrix());
 
-        auto hcat = Fhorzcat(octave_value_list(current_row),1);
+        auto hcat = OCTAVE_DEPR_NS Fhorzcat(octave_value_list(current_row),1);
 
         rows(i++) = hcat.empty()? octave_value(::Matrix()) : hcat(0);
       }
 
-    octave_value_list retval = Fvertcat(rows,1);
+    octave_value_list retval = OCTAVE_DEPR_NS Fvertcat(rows,1);
 
     if (retval.empty())
       return (octave_value(::Matrix()));
@@ -4435,12 +4634,12 @@ namespace coder
         if (current_row.empty ())
           current_row.push_back (::Cell());
 
-        auto hcat = Fhorzcat(current_row,1);
+        auto hcat = OCTAVE_DEPR_NS Fhorzcat(current_row,1);
 
         rows(i++) = hcat.empty()? octave_value(::Cell()) : hcat(0);
       }
 
-    octave_value_list retval = Fvertcat(rows,1);
+    octave_value_list retval = OCTAVE_DEPR_NS Fvertcat(rows,1);
 
     if (retval.empty())
       return (octave_value(::Cell()));
@@ -4450,7 +4649,7 @@ namespace coder
   coder_value
   Constant::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
   {
-    val.val->grab();
+    grab(val.val);
     return  coder_value(val.val);
   }
 
@@ -4550,7 +4749,7 @@ namespace coder
       {
         i++;
 
-        Tilde * is_tilde = dynamic_cast<Tilde *> (&elt.begin ()->get ());
+        bool is_tilde = elt.begin ()->get ().is_Tilde ();
 
         if (is_tilde)
           continue;
@@ -4732,7 +4931,7 @@ namespace coder
 
     octave_base_value * val = tmp_val.internal_rep ();
 
-    val->grab ();
+    grab (val);
 
     octave_base_value*& id_val = id.get_value ();
 
@@ -4756,10 +4955,10 @@ namespace coder
     if (arg.length () != 2)
       {
 #if OCTAVE_MAJOR_VERSION >= 6
-        Ffeval (*octave::interpreter::the_interpreter (),
+       OCTAVE_DEPR_NS Ffeval (*octave::interpreter::the_interpreter (),
           ovl (octave_value ("help"), octave_value ("narginchk")), 0);
 #else
-        Ffeval (ovl (octave_value ("help"), octave_value ("narginchk")), 0);
+       OCTAVE_DEPR_NS  Ffeval (ovl (octave_value ("help"), octave_value ("narginchk")), 0);
 #endif
         output.append (coder_value_list {octave_idx_type(0)});
       }
@@ -4834,7 +5033,7 @@ namespace coder
           }
         else
           {
-            msg = Fstruct (ovl (
+            msg = OCTAVE_DEPR_NS Fstruct (ovl (
               octave_value ("message"),
               octave_value (message),
               octave_value ("identifier"),
@@ -4843,7 +5042,7 @@ namespace coder
 
             if (message.empty ())
               {
-                msg = Fresize (ovl (msg, octave_value (0.0), octave_value (1.0)), 1) (0);
+                msg = OCTAVE_DEPR_NS Fresize (ovl (msg, octave_value (0.0), octave_value (1.0)), 1) (0);
               }
           }
       }
@@ -4866,10 +5065,10 @@ namespace coder
     else
       {
 #if OCTAVE_MAJOR_VERSION >= 6
-        Ffeval (*octave::interpreter::the_interpreter (),
+        OCTAVE_DEPR_NS Ffeval (*octave::interpreter::the_interpreter (),
           ovl (octave_value ("help"), octave_value ("nargoutchk")), 0);
 #else
-        Ffeval (ovl (octave_value ("help"), octave_value ("nargoutchk")), 0);
+        OCTAVE_DEPR_NS Ffeval (ovl (octave_value ("help"), octave_value ("nargoutchk")), 0);
 #endif
       }
 
@@ -4883,7 +5082,7 @@ namespace coder
 
     if (arg.length() > 0)
       {
-        result.append(Fnargin(*octave::interpreter::the_interpreter (), arg, nout));
+        result.append(OCTAVE_DEPR_NS Fnargin(*octave::interpreter::the_interpreter (), arg, nout));
       }
     else
       {
@@ -4898,7 +5097,7 @@ namespace coder
 
     if (arg.length() > 0)
       {
-        result.append (Fnargout(*octave::interpreter::the_interpreter (), arg, nout));
+        result.append (OCTAVE_DEPR_NS Fnargout(*octave::interpreter::the_interpreter (), arg, nout));
       }
     else
       {
@@ -4919,10 +5118,10 @@ namespace coder
     if (arg.length () != 1)
       {
 #if OCTAVE_MAJOR_VERSION >= 6
-        Ffeval (*octave::interpreter::the_interpreter (),
+        OCTAVE_DEPR_NS Ffeval (*octave::interpreter::the_interpreter (),
           ovl (octave_value ("help"), octave_value ("isargout")), 0);
 #else
-        Ffeval (ovl (octave_value ("help"), octave_value ("isargout")), 0);
+        OCTAVE_DEPR_NS Ffeval (ovl (octave_value ("help"), octave_value ("isargout")), 0);
 #endif
       }
     if (arg(0).is_scalar_type ())
@@ -5135,7 +5334,7 @@ namespace coder
 
     octave_base_value* base_val;
 
-    Range rng;
+    OCTAVE_RANGE rng;
 
     octave_idx_type steps;
 

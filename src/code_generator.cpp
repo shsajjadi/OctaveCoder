@@ -8,12 +8,21 @@
 #include <octave/oct.h>
 #include <octave/ov-fcn-handle.h>
 #include <octave/ov-usr-fcn.h>
+#include <octave/ov-range.h>
 #include <octave/pt-all.h>
 #include <octave/utils.h>
 #include <octave/version.h>
 
 #include "code_generator.h"
 #include "coder_file.h"
+
+#if OCTAVE_MAJOR_VERSION >= 7
+  #define OCTAVE_DEPR_NS octave::
+  #define OCTAVE_RANGE octave::range<double>
+#else
+  #define OCTAVE_DEPR_NS ::
+  #define OCTAVE_RANGE ::Range
+#endif
 
 namespace coder_compiler
 {
@@ -858,6 +867,35 @@ namespace coder_compiler
     loop_or_unwind.pop_back ();
   }
 
+#if OCTAVE_MAJOR_VERSION >= 7
+  void
+  code_generator::visit_spmd_command (octave::tree_spmd_command& cmd)
+  {
+    octave::tree_statement_list *body = cmd.body ();
+
+    if (body)
+      body->accept (*this);
+  }
+
+  void
+  code_generator::visit_arguments_block (octave::tree_arguments_block&){}
+
+  void
+  code_generator::visit_args_block_attribute_list (octave::tree_args_block_attribute_list&){}
+
+  void
+  code_generator::visit_args_block_validation_list (octave::tree_args_block_validation_list&){}
+
+  void
+  code_generator::visit_arg_validation (octave::tree_arg_validation&){}
+
+  void
+  code_generator::visit_arg_size_spec (octave::tree_arg_size_spec&){}
+
+  void
+  code_generator::visit_arg_validation_fcns (octave::tree_arg_validation_fcns&){}
+#endif
+
   void
   code_generator::visit_octave_user_script (octave_user_script& fcn)
   {
@@ -1330,77 +1368,7 @@ namespace coder_compiler
     os_src << ")" ;
   }
 
-  void
-  reformat_scalar(std::ostream& os, const std::string& source,bool is_complex )
-  {
-    std::string dest;
-
-    dest.reserve(source.size());
-
-    char numtype = '0';
-
-    auto it = source.begin();
-
-    auto end = is_complex ? std::prev(source.end()) : source.end();
-
-    for(;it != end; ++it)
-      {
-        if (*it == '_')
-          continue;
-
-        if (numtype == '0')
-          {
-            auto next = std::next(it);
-
-            if (*it == '0')
-              {
-                if(next != end)
-                  {
-                    if( *next == '0')
-                      continue;
-                    else if (*next == 'b' || *next == 'B')
-                      {
-                        it = std::next(next);
-
-                        numtype = 'b';
-                      }
-                    else if (*next == 'x' || *next == 'X')
-                      {
-                        it = next ;
-
-                        numtype = 'h';
-
-                        dest += "0x";
-                      }
-                    else
-                      {
-                        numtype = 'd';
-
-                        dest += '0';
-                      }
-                  }
-                else
-                  dest += '0';
-              }
-            else
-              {
-                numtype = 'd';
-
-                dest += *it;
-              }
-          }
-        else
-          dest += *it;
-      }
-    if (numtype == 'b')
-      // in c++14 binary literals are supported
-      os << std::bitset<64> (dest).to_ullong();
-    else
-      os << dest;
-  }
-
-  void print_value(std::ostream& os, const octave_value& m_value,
-    const std::string& original_text )
+  void print_value(std::ostream& os, const octave_value& m_value)
   {
     std::streamsize prec = os.precision();
 
@@ -1463,8 +1431,18 @@ namespace coder_compiler
       }
     else if( m_value.is_range() )
       {
-        ::Range r = m_value.range_value();
+        OCTAVE_RANGE r {m_value.range_value ()};
+#if OCTAVE_MAJOR_VERSION >= 7
         os
+          << "Colon ("
+          << r.base()
+          << "__, "
+          << r.increment()
+          << "__, "
+          << r.limit()
+          << "__)";
+#else
+         os
           << "Colon ("
           << r.base()
           << "__, "
@@ -1472,23 +1450,73 @@ namespace coder_compiler
           << "__, "
           << r.limit()
           << "__)";
+#endif
       }
     else if ( m_value.is_real_scalar() )
       {
-        if (original_text.empty())
-          os << m_value.double_value();
-        else
-          reformat_scalar(os, original_text, false);
+        switch (m_value.builtin_type ())
+          {
+          case btyp_double:
+            {
+              os << m_value.double_value() << "__";
 
-        os << "__";
+              break;
+            }
+          case btyp_int8:
+            {
+              os << m_value.int8_scalar_value() << "_i8";
+
+              break;
+            }
+          case btyp_int16:
+            {
+              os << m_value.int16_scalar_value() << "_i16";
+
+              break;
+            }
+          case btyp_int32:
+            {
+              os << m_value.int32_scalar_value() << "_i32";
+
+              break;
+            }
+          case btyp_int64:
+            {
+              os << m_value.int64_scalar_value() << "_i64";
+
+              break;
+            }
+          case btyp_uint8:
+            {
+              os << m_value.uint8_scalar_value() << "_ui8";
+
+              break;
+            }
+          case btyp_uint16:
+            {
+              os << m_value.uint16_scalar_value() << "_ui16";
+
+              break;
+            }
+          case btyp_uint32:
+            {
+              os << m_value.uint32_scalar_value() << "_ui32";
+
+              break;
+            }
+          case btyp_uint64:
+            {
+              os << m_value.uint64_scalar_value() << "_ui64";
+
+              break;
+            }
+          default:
+            {}
+          }
       }
     else if ( m_value.is_complex_scalar() )
       {
-        if (original_text.empty())
-          os << m_value.complex_value().imag ();
-        else
-          reformat_scalar(os, original_text, true);
-
+        os << m_value.complex_value().imag ();
         os << "_i";
       }
     else if(m_value.is_real_matrix() )
@@ -2335,12 +2363,6 @@ namespace coder_compiler
       expr->accept (*this);
 
     os_src << ")\n";
-  }
-
-  void
-  code_generator::errmsg (const std::string& msg, int line)
-  {
-    error ("%s", msg.c_str ());
   }
 
   std::string
@@ -3698,13 +3720,18 @@ namespace coder_compiler
 
             auto f = aliases.find(bif(i));
 
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+
             if (f != aliases.end())
               {
                 os_src
                   << mangle(f->first)
                   << "make() { static const Symbol "
                   << mangle(f->first)
-                  << " (fcn2ov( F"
+                  << " (fcn2ov("
+                  << TOSTRING(OCTAVE_DEPR_NS)
+                  << " F"
                   << f->second
                   << " )); return "
                   << mangle(f->first)
@@ -3716,7 +3743,9 @@ namespace coder_compiler
                   << mangle(bif(i))
                   << "make() { static const Symbol "
                   << mangle(bif(i))
-                  << " (fcn2ov( F"
+                  << " (fcn2ov("
+                  << TOSTRING(OCTAVE_DEPR_NS)
+                  << " F"
                   << bif(i)
                   << " )); return "
                   << mangle(bif(i))

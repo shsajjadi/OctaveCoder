@@ -230,7 +230,34 @@ namespace coder_compiler
     if (list)
       list->accept (*this);
   }
+#if OCTAVE_MAJOR_VERSION >= 7
+  void
+  semantic_analyser::visit_spmd_command (octave::tree_spmd_command& cmd)
+  {
+    octave::tree_statement_list *body = cmd.body ();
 
+    if (body)
+      body->accept (*this);
+  }
+
+  void
+  semantic_analyser::visit_arguments_block (octave::tree_arguments_block&){}
+
+  void
+  semantic_analyser::visit_args_block_attribute_list (octave::tree_args_block_attribute_list&){}
+
+  void
+  semantic_analyser::visit_args_block_validation_list (octave::tree_args_block_validation_list&){}
+
+  void
+  semantic_analyser::visit_arg_validation (octave::tree_arg_validation&){}
+
+  void
+  semantic_analyser::visit_arg_size_spec (octave::tree_arg_size_spec&){}
+
+  void
+  semantic_analyser::visit_arg_validation_fcns (octave::tree_arg_validation_fcns&){}
+#endif
   void
   semantic_analyser::visit_multi_assignment (octave::tree_multi_assignment& expr)
   {
