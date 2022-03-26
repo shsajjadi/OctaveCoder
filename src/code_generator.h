@@ -90,7 +90,7 @@ namespace coder_compiler
   reformat_scalar (std::ostream& os, const std::string& source, bool is_complex = false);
 
   void
-  print_value(std::ostream& os, const octave_value& m_value, const std::string& original_text = "");
+  print_value(std::ostream& os, const octave_value& m_value);
 
   enum generation_mode
   {
@@ -151,9 +151,30 @@ namespace coder_compiler
 
     void
     visit_complex_for_command (octave::tree_complex_for_command& cmd);
+#if OCTAVE_MAJOR_VERSION >= 7
+    void
+    visit_spmd_command (octave::tree_spmd_command&);
 
     void
-    visit_octave_user_script (octave_user_script& fcn);
+    visit_arguments_block (octave::tree_arguments_block&);
+
+    void
+    visit_args_block_attribute_list (octave::tree_args_block_attribute_list&);
+
+    void
+    visit_args_block_validation_list (octave::tree_args_block_validation_list&);
+
+    void
+    visit_arg_validation (octave::tree_arg_validation&);
+
+    void
+    visit_arg_size_spec (octave::tree_arg_size_spec&);
+
+    void
+    visit_arg_validation_fcns (octave::tree_arg_validation_fcns&);
+#endif
+    void
+    visit_octave_user_script (octave_user_script&);
 
     void
     visit_octave_user_function (octave_user_function& fcn);
@@ -165,7 +186,7 @@ namespace coder_compiler
     visit_octave_user_function_trailer (octave_user_function& fcn);
 
     void
-    visit_function_def (octave::tree_function_def& fdef){}
+    visit_function_def (octave::tree_function_def&){}
 
     void
     visit_identifier (octave::tree_identifier&  id );
@@ -195,7 +216,7 @@ namespace coder_compiler
     visit_multi_assignment (octave::tree_multi_assignment& expr);
 
     void
-    visit_no_op_command (octave::tree_no_op_command& cmd){}
+    visit_no_op_command (octave::tree_no_op_command&){}
 
     void
     visit_constant (octave::tree_constant& val);
@@ -257,9 +278,6 @@ namespace coder_compiler
 
     void
     visit_do_until_command (octave::tree_do_until_command& cmd);
-
-    void
-    errmsg (const std::string& msg, int line);
 
     std::string
     mangle (const std::string& str);

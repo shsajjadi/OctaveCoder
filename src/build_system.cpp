@@ -30,6 +30,12 @@
 #include "dgraph.h"
 #include "semantic_analyser.h"
 
+#if OCTAVE_MAJOR_VERSION >= 7
+  #define OCTAVE_DEPR_NS octave::
+#else
+  #define OCTAVE_DEPR_NS ::
+#endif
+
 namespace coder_compiler
 {
 
@@ -495,15 +501,15 @@ namespace coder_compiler
 
     using octave::sys::file_ops::tilde_expand;
 
-    bool isunix = F__octave_config_info__ (octave_value("unix"),1)(0).bool_value ();
+    bool isunix = OCTAVE_DEPR_NS F__octave_config_info__ (octave_value("unix"),1)(0).bool_value ();
 
-    bool ispc = F__octave_config_info__ (octave_value("windows"),1)(0).bool_value ();
+    bool ispc = OCTAVE_DEPR_NS F__octave_config_info__ (octave_value("windows"),1)(0).bool_value ();
 
-    bool ismac = F__octave_config_info__ (octave_value("mac"),1)(0).bool_value ();
+    bool ismac = OCTAVE_DEPR_NS F__octave_config_info__ (octave_value("mac"),1)(0).bool_value ();
 
-    std::string  DL_LDFLAGS = F__octave_config_info__ (octave_value("DL_LDFLAGS"),1)(0).string_value ();
+    std::string  DL_LDFLAGS = OCTAVE_DEPR_NS F__octave_config_info__ (octave_value("DL_LDFLAGS"),1)(0).string_value ();
 
-    std::string  SH_LDFLAGS = F__octave_config_info__ (octave_value("SH_LDFLAGS"),1)(0).string_value ();
+    std::string  SH_LDFLAGS = OCTAVE_DEPR_NS F__octave_config_info__ (octave_value("SH_LDFLAGS"),1)(0).string_value ();
 
     std::string libdir = tilde_expand(concat (cache_directory, "lib"));
 
@@ -647,9 +653,9 @@ namespace coder_compiler
 
       if (relink)
         {
-          Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
+          OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
 
-          unwind unw ([&](){Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
+          unwind unw ([&](){OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
 
           call_mkoctfile (
             ovl(
@@ -728,9 +734,9 @@ namespace coder_compiler
              )
           );
 
-          Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
+          OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
 
-          unwind unw ([&](){Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
+          unwind unw ([&](){OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
 
           call_mkoctfile (
             ovl( octave_value (quote(tmpobj)),
@@ -775,9 +781,9 @@ namespace coder_compiler
               dep_names.append ( octave_value ("-l" + mangle(lowercase (f->name)) + std::to_string(f->id)));
             }
 
-          Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
+          OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
 
-          unwind unw ([&](){Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
+          unwind unw ([&](){OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
 
           call_mkoctfile (
             ovl(
@@ -856,9 +862,9 @@ namespace coder_compiler
 
       octave_value_list dep_names = ovl(octave_value ("-lcoder"), octave_value ("-l" + filename));
 
-      Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
+      OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
 
-      unwind unw ([&](){Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
+      unwind unw ([&](){OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
 
       call_mkoctfile (
         ovl(octave_value("-Wl,-o," + quote(bin)+ strpl),

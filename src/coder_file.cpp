@@ -15,14 +15,20 @@
 
 #include "coder_file.h"
 
+#if OCTAVE_MAJOR_VERSION >= 7
+  #define OCTAVE_DEPR_NS octave::
+#else
+  #define OCTAVE_DEPR_NS ::
+#endif
+
 namespace coder_compiler
 {
   void change_directory (octave::interpreter& interp, const octave_value_list& dirname, int nargout)
   {
 #if OCTAVE_MAJOR_VERSION >= 6
-    Fcd(interp, dirname, nargout);
+    OCTAVE_DEPR_NS Fcd(interp, dirname, nargout);
 #else
-    Fcd(dirname, nargout);
+    OCTAVE_DEPR_NS Fcd(dirname, nargout);
 #endif
   }
 

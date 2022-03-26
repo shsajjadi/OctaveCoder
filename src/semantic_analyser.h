@@ -129,7 +129,7 @@ namespace coder_compiler
   std::pair<octave_fields, octave_fields>
   make_schema ();
 
-  class semantic_analyser : public octave::tree_checker
+  class semantic_analyser : public octave::tree_walker
   {
   public:
 
@@ -147,22 +147,106 @@ namespace coder_compiler
     semantic_analyser(const octave_map& cache_index);
 
     void
-    visit_octave_user_script (octave_user_script& fcn){}
+    visit_octave_user_script (octave_user_script&){}
 
     void
     visit_argument_list (octave::tree_argument_list& lst);
 
     void
+    visit_binary_expression (octave::tree_binary_expression&);
+
+    void
+    visit_boolean_expression (octave::tree_boolean_expression&);
+
+    void
+    visit_compound_binary_expression (octave::tree_compound_binary_expression&);
+
+    void
+    visit_break_command (octave::tree_break_command&);
+
+    void
+    visit_colon_expression (octave::tree_colon_expression&);
+
+    void
+    visit_continue_command (octave::tree_continue_command&);
+
+    void
+    visit_decl_command (octave::tree_decl_command&);
+
+    void
     visit_simple_for_command (octave::tree_simple_for_command& cmd);
+
+    void
+    visit_complex_for_command (octave::tree_complex_for_command&);
+#if OCTAVE_MAJOR_VERSION >= 7
+    void
+    visit_spmd_command (octave::tree_spmd_command&);
+
+    void
+    visit_arguments_block (octave::tree_arguments_block&);
+
+    void
+    visit_args_block_attribute_list (octave::tree_args_block_attribute_list&);
+
+    void
+    visit_args_block_validation_list (octave::tree_args_block_validation_list&);
+
+    void
+    visit_arg_validation (octave::tree_arg_validation&);
+
+    void
+    visit_arg_size_spec (octave::tree_arg_size_spec&);
+
+    void
+    visit_arg_validation_fcns (octave::tree_arg_validation_fcns&);
+#endif
+#if OCTAVE_MAJOR_VERSION < 6
+    void
+    visit_funcall (octave::tree_funcall& /* fc */)
+    { }
+
+    void
+    visit_return_list (octave::tree_return_list& lst){}
+    { }
+#endif
+    void
+    visit_multi_assignment (octave::tree_multi_assignment&);
+
+    void
+    visit_no_op_command (octave::tree_no_op_command&) {}
+
+    void
+    visit_constant (octave::tree_constant&) {}
 
     void
     visit_index_expression (octave::tree_index_expression&);
 
     void
+    visit_matrix (octave::tree_matrix&);
+
+    void
+    visit_cell (octave::tree_cell&);
+
+    void
     visit_simple_assignment (octave::tree_simple_assignment& expr);
 
     void
+    visit_statement (octave::tree_statement&);
+
+    void
+    visit_statement_list (octave::tree_statement_list&);
+
+    void
     visit_try_catch_command (octave::tree_try_catch_command& cmd);
+
+    void
+    visit_unwind_protect_command (octave::tree_unwind_protect_command&);
+
+    void
+    visit_while_command (octave::tree_while_command&);
+
+    void
+    visit_do_until_command (octave::tree_do_until_command&);
 
     void
     visit_handle (octave::tree_anon_fcn_handle& anon_fh);
@@ -171,16 +255,109 @@ namespace coder_compiler
     visit_octave_user_function (octave_user_function& fcnn);
 
     void
+    visit_function_def (octave::tree_function_def&);
+
+    void
     visit_anon_fcn_handle (octave::tree_anon_fcn_handle&  afh );
 
     void
     visit_identifier (octave::tree_identifier& expr);
 
     void
+    visit_if_clause (octave::tree_if_clause&);
+
+    void
+    visit_if_command (octave::tree_if_command&);
+
+    void
+    visit_if_command_list (octave::tree_if_command_list&);
+
+    void
+    visit_switch_case (octave::tree_switch_case&);
+
+    void
+    visit_switch_case_list (octave::tree_switch_case_list&);
+
+    void
+    visit_switch_command (octave::tree_switch_command&);
+
+    void
     visit_decl_elt (octave::tree_decl_elt& elt);
 
     void
+    visit_decl_init_list (octave::tree_decl_init_list&);
+
+    void
     visit_fcn_handle (octave::tree_fcn_handle& expr);
+
+    void
+    visit_parameter_list (octave::tree_parameter_list&);
+
+    void
+    visit_postfix_expression (octave::tree_postfix_expression&);
+
+    void
+    visit_prefix_expression (octave::tree_prefix_expression&);
+
+    void
+    visit_return_command (octave::tree_return_command&) {}
+
+    void
+    visit_superclass_ref (octave::tree_superclass_ref&) {}
+
+    void
+    visit_metaclass_query (octave::tree_metaclass_query&) {}
+
+    void
+    visit_classdef_attribute (octave::tree_classdef_attribute&) {}
+
+    void
+    visit_classdef_attribute_list (octave::tree_classdef_attribute_list&) {}
+
+    void
+    visit_classdef_superclass (octave::tree_classdef_superclass&) {}
+
+    void
+    visit_classdef_superclass_list (octave::tree_classdef_superclass_list&) {}
+
+    void
+    visit_classdef_property (octave::tree_classdef_property&) {}
+
+    void
+    visit_classdef_property_list (octave::tree_classdef_property_list&) {}
+
+    void
+    visit_classdef_properties_block (octave::tree_classdef_properties_block&) {}
+
+    void
+    visit_classdef_methods_list (octave::tree_classdef_methods_list&) {}
+
+    void
+    visit_classdef_methods_block (octave::tree_classdef_methods_block&) {}
+
+    void
+    visit_classdef_event (octave::tree_classdef_event&) {}
+
+    void
+    visit_classdef_events_list (octave::tree_classdef_events_list&) {}
+
+    void
+    visit_classdef_events_block (octave::tree_classdef_events_block&) {}
+
+    void
+    visit_classdef_enum (octave::tree_classdef_enum&) {}
+
+    void
+    visit_classdef_enum_list (octave::tree_classdef_enum_list&) {}
+
+    void
+    visit_classdef_enum_block (octave::tree_classdef_enum_block&) {}
+
+    void
+    visit_classdef_body (octave::tree_classdef_body&) {}
+
+    void
+    visit_classdef (octave::tree_classdef&) {}
 
     coder_file_ptr
     init_builtins();
@@ -208,6 +385,9 @@ namespace coder_compiler
 
     coder_symbol_ptr
     insert_symbol(const std::string& name, symbol_type type);
+
+    coder_symbol_ptr
+    insert_formal_symbol(const std::string& name);
 
     coder_file_ptr
     current_file();
@@ -241,6 +421,10 @@ namespace coder_compiler
 
     octave_value find_function (const std::string& name);
 
+    void find_resolvabale_names_in_octave_path ();
+
+     void find_resolvabale_names (std::shared_ptr<std::set<std::string>> resolvable_names, const std::string& d);
+
     struct compare_file_ptr
     {
       bool operator() (const coder_file_ptr& lhs, const coder_file_ptr& rhs) const
@@ -250,8 +434,6 @@ namespace coder_compiler
     };
 
   private:
-
-    bool m_do_lvalue_check;
 
     std::multiset<coder_file_ptr, compare_file_ptr> dependent_files;
 
@@ -274,5 +456,15 @@ namespace coder_compiler
     std::map <std::string , coder_file_ptr> oct_list;
 
     std::stack<function_finder> scope_stack;
+
+    std::map<std::string, std::set<coder_symbol_ptr, typename symscope::compare_symbol>> directory_table;
+
+    std::set<coder_symbol_ptr, typename symscope::compare_symbol> *file_directory_it;
+
+    std::map<std::string, std::shared_ptr<std::set<std::string>>> path_map;
+
+    std::shared_ptr<std::set<std::string>> resolvable_path_names;
+
+    std::shared_ptr<std::set<std::string>> current_path_map;
   };
 }
