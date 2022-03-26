@@ -75,13 +75,11 @@ namespace coder_compiler
   }
 
   semantic_analyser::semantic_analyser(  )
-  : m_do_lvalue_check(false)
   {
     init_builtins();
   }
 
   semantic_analyser::semantic_analyser( const octave_map& cache_index )
-  : m_do_lvalue_check(false)
   {
     build_dependency_graph (cache_index);
     init_builtins();
@@ -98,11 +96,86 @@ namespace coder_compiler
 
         if (elt)
           {
-            if (m_do_lvalue_check && ! elt->lvalue_ok ())
-              error ("invalid lvalue in multiple assignment");
-
             elt->accept (*this);
           }
+      }
+  }
+
+  void
+  semantic_analyser::visit_binary_expression (octave::tree_binary_expression& expr)
+  {
+    octave::tree_expression *op1 = expr.lhs ();
+
+    if (op1)
+      op1->accept (*this);
+
+    octave::tree_expression *op2 = expr.rhs ();
+
+    if (op2)
+      op2->accept (*this);
+  }
+
+  void
+  semantic_analyser::visit_boolean_expression (octave::tree_boolean_expression& expr)
+  {
+    visit_binary_expression (expr);
+  }
+
+  void
+  semantic_analyser::visit_compound_binary_expression (octave::tree_compound_binary_expression& expr)
+  {
+    visit_binary_expression (expr);
+  }
+
+  void
+  semantic_analyser::visit_break_command (octave::tree_break_command&)
+  {
+    // Nothing to do.
+  }
+
+  void
+  semantic_analyser::visit_colon_expression (octave::tree_colon_expression& expr)
+  {
+    octave::tree_expression *op1 = expr.base ();
+
+    if (op1)
+      op1->accept (*this);
+
+    octave::tree_expression *op3 = expr.increment ();
+
+    if (op3)
+      op3->accept (*this);
+
+    octave::tree_expression *op2 = expr.limit ();
+
+    if (op2)
+      op2->accept (*this);
+  }
+
+  void
+  semantic_analyser::visit_continue_command (octave::tree_continue_command&)
+  {
+
+  }
+
+  void
+  semantic_analyser::visit_decl_command (octave::tree_decl_command& cmd)
+  {
+    octave::tree_decl_init_list *init_list = cmd.initializer_list ();
+
+    if (init_list)
+      init_list->accept (*this);
+  }
+
+  void semantic_analyser::visit_decl_init_list (octave::tree_decl_init_list& lst)
+  {
+    // FIXME: tree_decl_elt is not derived from tree, so should it
+    // really have an accept method?
+
+    for (octave::tree_decl_elt *elt : lst)
+      {
+        if (elt)
+          elt->accept (*this);
       }
   }
 
@@ -113,9 +186,6 @@ namespace coder_compiler
 
     if (lhs)
       {
-        if (! lhs->lvalue_ok ())
-          error ("invalid lvalue in for command");
-
         lhs->accept(*this);
       }
 
@@ -133,6 +203,48 @@ namespace coder_compiler
 
     if (list)
       list->accept (*this);
+  }
+
+  void
+  semantic_analyser::visit_complex_for_command (octave::tree_complex_for_command& cmd)
+  {
+    octave::tree_argument_list *lhs = cmd.left_hand_side ();
+
+    if (lhs)
+      {
+        int len = lhs->length ();
+
+        if (len == 0 || len > 2)
+          error ("invalid number of output arguments in for command");
+
+        lhs->accept (*this);
+      }
+
+    octave::tree_expression *expr = cmd.control_expr ();
+
+    if (expr)
+      expr->accept (*this);
+
+    octave::tree_statement_list *list = cmd.body ();
+
+    if (list)
+      list->accept (*this);
+  }
+
+  void
+  semantic_analyser::visit_multi_assignment (octave::tree_multi_assignment& expr)
+  {
+    octave::tree_argument_list *lhs = expr.left_hand_side ();
+
+    if (lhs)
+      {
+        lhs->accept (*this);
+      }
+
+    octave::tree_expression *rhs = expr.right_hand_side ();
+
+    if (rhs)
+      rhs->accept (*this);
   }
 
   void
@@ -192,15 +304,40 @@ namespace coder_compiler
   }
 
   void
+  semantic_analyser::visit_matrix (octave::tree_matrix& lst)
+  {
+    auto p = lst.begin ();
+
+    while (p != lst.end ())
+      {
+        octave::tree_argument_list *elt = *p++;
+
+        if (elt)
+          elt->accept (*this);
+      }
+  }
+
+  void
+  semantic_analyser::visit_cell (octave::tree_cell& lst)
+  {
+    auto p = lst.begin ();
+
+    while (p != lst.end ())
+      {
+        octave::tree_argument_list *elt = *p++;
+
+        if (elt)
+          elt->accept (*this);
+      }
+  }
+
+  void
   semantic_analyser::visit_simple_assignment (octave::tree_simple_assignment& expr)
   {
     octave::tree_expression *lhs = expr.left_hand_side ();
 
     if (lhs)
       {
-        if (! lhs->lvalue_ok ())
-          error ("invalid lvalue in assignment");
-
         lhs->accept (*this);
       }
 
@@ -208,6 +345,32 @@ namespace coder_compiler
 
     if (rhs)
       rhs->accept (*this);
+  }
+
+  void
+  semantic_analyser::visit_statement (octave::tree_statement& stmt)
+  {
+    octave::tree_command *cmd = stmt.command ();
+
+    if (cmd)
+      cmd->accept (*this);
+    else
+      {
+        octave::tree_expression *expr = stmt.expression ();
+
+        if (expr)
+          expr->accept (*this);
+      }
+  }
+
+  void
+  semantic_analyser::visit_statement_list (octave::tree_statement_list& lst)
+  {
+    for (octave::tree_statement *elt : lst)
+      {
+        if (elt)
+          elt->accept (*this);
+      }
   }
 
   void
@@ -219,9 +382,6 @@ namespace coder_compiler
 
     if (expr_id)
       {
-        if (! expr_id->lvalue_ok ())
-          error ("invalid lvalue used for identifier in try-catch command");
-
         expr_id->accept (*this);
       }
 
@@ -232,6 +392,45 @@ namespace coder_compiler
 
     if (catch_code)
       catch_code->accept (*this);
+  }
+
+  void semantic_analyser::visit_unwind_protect_command (octave::tree_unwind_protect_command& cmd)
+  {
+    octave::tree_statement_list *unwind_protect_code = cmd.body ();
+
+    if (unwind_protect_code)
+      unwind_protect_code->accept (*this);
+
+    octave::tree_statement_list *cleanup_code = cmd.cleanup ();
+
+    if (cleanup_code)
+      cleanup_code->accept (*this);
+  }
+
+  void semantic_analyser::visit_while_command (octave::tree_while_command& cmd)
+  {
+    octave::tree_expression *expr = cmd.condition ();
+
+    if (expr)
+      expr->accept (*this);
+
+    octave::tree_statement_list *list = cmd.body ();
+
+    if (list)
+      list->accept (*this);
+  }
+
+  void semantic_analyser::visit_do_until_command (octave::tree_do_until_command& cmd)
+  {
+    octave::tree_statement_list *list = cmd.body ();
+
+    if (list)
+      list->accept (*this);
+
+    octave::tree_expression *expr = cmd.condition ();
+
+    if (expr)
+      expr->accept (*this);
   }
 
   void
@@ -249,7 +448,7 @@ namespace coder_compiler
           {
             octave::tree_identifier *id = elt->ident ();
 
-            if (id)
+            if (id && !id->is_black_hole())
               {
                   insert_symbol(id->name(), symbol_type::ordinary);
               }
@@ -330,7 +529,7 @@ namespace coder_compiler
               {
                 octave::tree_identifier *id = elt->ident ();
 
-                if (id)
+                if (id && !id->is_black_hole())
                   {
                     insert_symbol(id->name(), symbol_type::ordinary);
                   }
@@ -436,6 +635,16 @@ namespace coder_compiler
       }
   }
 
+  void semantic_analyser::visit_function_def (octave::tree_function_def& fdef)
+  {
+    octave_value fcn = fdef.function ();
+
+    octave_function *f = fcn.function_value ();
+
+    if (f)
+      f->accept (*this);
+  }
+
   void
   semantic_analyser::visit_anon_fcn_handle (octave::tree_anon_fcn_handle&  afh )
   {
@@ -451,6 +660,85 @@ namespace coder_compiler
       return;
 
     insert_symbol(nm);
+  }
+
+  void
+  semantic_analyser::visit_if_clause (octave::tree_if_clause& cmd)
+  {
+    octave::tree_expression *expr = cmd.condition ();
+
+    if (expr)
+      expr->accept (*this);
+
+    octave::tree_statement_list *list = cmd.commands ();
+
+    if (list)
+      list->accept (*this);
+  }
+
+  void
+  semantic_analyser::visit_if_command (octave::tree_if_command& cmd)
+  {
+    octave::tree_if_command_list *list = cmd.cmd_list ();
+
+    if (list)
+      list->accept (*this);
+  }
+
+  void
+  semantic_analyser::visit_if_command_list (octave::tree_if_command_list& lst)
+  {
+    auto p = lst.begin ();
+
+    while (p != lst.end ())
+      {
+        octave::tree_if_clause *elt = *p++;
+
+        if (elt)
+          elt->accept (*this);
+      }
+  }
+
+  void
+  semantic_analyser::visit_switch_case (octave::tree_switch_case& cs)
+  {
+    octave::tree_expression *label = cs.case_label ();
+
+    if (label)
+      label->accept (*this);
+
+    octave::tree_statement_list *list = cs.commands ();
+
+    if (list)
+      list->accept (*this);
+  }
+
+  void
+  semantic_analyser::visit_switch_case_list (octave::tree_switch_case_list& lst)
+  {
+    auto p = lst.begin ();
+
+    while (p != lst.end ())
+      {
+        octave::tree_switch_case *elt = *p++;
+
+        if (elt)
+          elt->accept (*this);
+      }
+  }
+
+  void
+  semantic_analyser::visit_switch_command (octave::tree_switch_command& cmd)
+  {
+    octave::tree_expression *expr = cmd.switch_value ();
+
+    if (expr)
+      expr->accept (*this);
+
+    octave::tree_switch_case_list *list = cmd.case_list ();
+
+    if (list)
+      list->accept (*this);
   }
 
   void
@@ -500,6 +788,38 @@ namespace coder_compiler
       }
     else
       insert_symbol(nm);
+  }
+
+  void
+  semantic_analyser::visit_parameter_list (octave::tree_parameter_list& lst)
+  {
+    auto p = lst.begin ();
+
+    while (p != lst.end ())
+      {
+        octave::tree_decl_elt *elt = *p++;
+
+        if (elt)
+          elt->accept (*this);
+      }
+  }
+
+  void
+  semantic_analyser::visit_postfix_expression (octave::tree_postfix_expression& expr)
+  {
+    octave::tree_expression *e = expr.operand ();
+
+    if (e)
+      e->accept (*this);
+  }
+
+  void
+  semantic_analyser::visit_prefix_expression (octave::tree_prefix_expression& expr)
+  {
+    octave::tree_expression *e = expr.operand ();
+
+    if (e)
+      e->accept (*this);
   }
 
   coder_file_ptr
