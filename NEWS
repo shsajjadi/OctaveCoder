@@ -1,3 +1,12 @@
+coder 1.7.0- 2022-03-26
+---------------------
+
+* Compatibility with Octave 7
+* Fix bug when a loop variable is written to
+* Speeding up for loop
+* Speeding up analysing dependencies and  compilation of .oct files
+* Fix bug related to empty if statement  body
+
 coder 1.6.8- 2021-12-07
 ---------------------
 
