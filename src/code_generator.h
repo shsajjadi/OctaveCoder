@@ -221,6 +221,9 @@ namespace coder_compiler
     void
     visit_constant (octave::tree_constant& val);
 
+    bool
+    visit_dot_separated_fcn_handle (octave::tree_fcn_handle& expr);
+
     void
     visit_fcn_handle (octave::tree_fcn_handle&  fh );
 #if OCTAVE_MAJOR_VERSION < 6
@@ -278,7 +281,64 @@ namespace coder_compiler
 
     void
     visit_do_until_command (octave::tree_do_until_command& cmd);
+#if OCTAVE_MAJOR_VERSION >= 8
+    void
+    visit_superclass_ref(octave::tree_superclass_ref&){}
 
+    void
+    visit_metaclass_query(octave::tree_metaclass_query&){}
+
+    void
+    visit_classdef_attribute(octave::tree_classdef_attribute&){}
+
+    void
+    visit_classdef_attribute_list(octave::tree_classdef_attribute_list&){}
+
+    void
+    visit_classdef_superclass(octave::tree_classdef_superclass&){}
+
+    void
+    visit_classdef_superclass_list(octave::tree_classdef_superclass_list&){}
+
+    void
+    visit_classdef_property(octave::tree_classdef_property&){}
+
+    void
+    visit_classdef_property_list(octave::tree_classdef_property_list&){}
+
+    void
+    visit_classdef_properties_block(octave::tree_classdef_properties_block&){}
+
+    void
+    visit_classdef_methods_list(octave::tree_classdef_methods_list&){}
+
+    void
+    visit_classdef_methods_block(octave::tree_classdef_methods_block&){}
+
+    void
+    visit_classdef_event(octave::tree_classdef_event&){}
+
+    void
+    visit_classdef_events_list(octave::tree_classdef_events_list&){}
+
+    void
+    visit_classdef_events_block(octave::tree_classdef_events_block&){}
+
+    void
+    visit_classdef_enum(octave::tree_classdef_enum&){}
+
+    void
+    visit_classdef_enum_list(octave::tree_classdef_enum_list&){}
+
+    void
+    visit_classdef_enum_block(octave::tree_classdef_enum_block&){}
+
+    void
+    visit_classdef_body(octave::tree_classdef_body&){}
+
+    void
+    visit_classdef(octave::tree_classdef&){}
+#endif
     std::string
     mangle (const std::string& str);
 

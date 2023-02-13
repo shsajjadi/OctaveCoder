@@ -2632,19 +2632,20 @@ namespace coder
       {
       case file_type::oct:
         {
-          octave::dynamic_loader& dyn_loader
-            = octave::interpreter::the_interpreter ()->get_dynamic_loader ();
-
           using octave::sys::file_ops::concat;
 
           std::string fullname = concat (path, std::string(file_name) + ".oct");
 
-          octave_function *tmpfcn
-            = dyn_loader.load_oct (fcn_name, fullname, false);
+          octave_value ovfcn
+            = OCTAVE_DEPR_NS load_fcn_from_file (fullname, path, "", "", fcn_name, true);
+
+          auto * tmpfcn = ovfcn.function_value ();
 
           if (tmpfcn)
             {
               value = tmpfcn;
+
+              grab (value);
             }
           else
             {
@@ -2656,19 +2657,20 @@ namespace coder
 
       case file_type::mex:
         {
-          octave::dynamic_loader& dyn_loader
-            = octave::interpreter::the_interpreter ()->get_dynamic_loader ();
-
           using octave::sys::file_ops::concat;
 
           std::string fullname = concat (path, std::string (file_name) + ".mex");
 
-          octave_function *tmpfcn
-            = dyn_loader.load_mex (fcn_name, fullname, false);
+          octave_value ovfcn
+            = octave::load_fcn_from_file (fullname, path, "", "", fcn_name, true);
+
+          auto * tmpfcn = ovfcn.function_value ();
 
           if (tmpfcn)
             {
               value = tmpfcn;
+
+              grab (value);
             }
           else
             {
@@ -5210,17 +5212,18 @@ namespace coder
     ult.assign (octave_value::op_asn_eq, err, idx);
   }
 
-  template<typename T, typename S>
-  T Dynamic_cast (S *s)
+  static bool coder_is_scalar (const octave_base_value * val)
   {
-    static const int id = std::remove_pointer<T>::type::static_type_id ();
+    static const int id = octave_value (0.0).type_id ();
 
-    if (s->type_id () == id)
-      {
-        return static_cast<T> (s);
-      }
+    return val->type_id () == id;
+  }
 
-    return nullptr;
+  static bool coder_is_scalar_struct (const octave_base_value * val)
+  {
+    static const int id = octave_value (octave_scalar_map ()).type_id ();
+
+    return val->type_id () == id;
   }
 
   class for_loop_rep
@@ -5345,7 +5348,7 @@ namespace coder
               return;
             }
 
-          if (ult_idx.empty () && (m_fast_loop || Dynamic_cast<octave_scalar *>(m_sym)))
+          if (ult_idx.empty () && (m_fast_loop || coder_is_scalar(m_sym)))
             {
               if (m_sym->*get(octave_base_value_count ()) == 1)
                 static_cast<octave_base_scalar<double> *>(m_sym)->scalar_ref() = rhs;
@@ -5423,7 +5426,7 @@ namespace coder
 
       keys = rhs.val->map_keys ();
 
-      is_scalar_struct = Dynamic_cast <octave_scalar_struct*> (rhs.val);
+      is_scalar_struct = coder_is_scalar_struct (rhs.val);
 
       if (is_scalar_struct)
         tmp_scalar_val = rhs.val->scalar_map_value ();
