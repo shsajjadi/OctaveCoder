@@ -1263,6 +1263,22 @@ template <int size>
       }
   }
 
+  struct DeleteOnExit
+  {
+    DeleteOnExit (Ptr * del, int sz) : delete_list (del), size (sz) {}
+    ~DeleteOnExit ()
+    {
+      for (int i = 0; i < size; i++)
+        {
+          static_cast<Symbol&>(delete_list[i].get ()) = {};
+        }
+    }
+
+    Ptr * delete_list;
+
+    int size;
+  };
+
   void SetEmpty(Symbol& id);
 
   bool isargout1 (int nargout, double k);

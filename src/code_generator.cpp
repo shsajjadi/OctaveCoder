@@ -2674,6 +2674,8 @@ namespace coder_compiler
 
     std::stringstream ss_fcnmake;
 
+    std::stringstream ss_nested_functions;
+
     std::string ordinary_names;
 
     std::string special_names;
@@ -2788,7 +2790,10 @@ namespace coder_compiler
             else
               is_special = false;
 
-            if(! is_special)
+            bool first_parent = nesting_context > 1 && nested_fcn_names.size()>=2
+                                && symbol->name == nested_fcn_names[nested_fcn_names.size() - 2];
+
+            if(! is_special && ! first_parent)
               ss_nested
                 <<  sep(", ")
                 << mangle(symbol->name);
@@ -2823,6 +2828,8 @@ namespace coder_compiler
 
     ss_fcnmake << sep ();
 
+    ss_nested_functions << sep ();
+
     const auto& nested_fcns = scope[(int)symbol_type::nested_fcn];
 
     if (! nested_fcns.empty())
@@ -2833,6 +2840,10 @@ namespace coder_compiler
               << sep(", ")
               << mangle (symbol->name)
               << "make";
+
+            ss_nested_functions
+              << sep(", ")
+              << mangle (symbol->name);
           }
 
         if (nesting_context > 0)
@@ -2885,6 +2896,16 @@ namespace coder_compiler
       << "](coder_value_list& output, const octave_value_list& args, int nargout) mutable\n{\n";
 
     increment_indent_level (os_src);
+
+    if (! nested_fcns.empty ())
+      {
+        os_src
+          << "Ptr del[] = {"
+          << ss_nested_functions.str ()
+          << "};\n"
+
+          << "DeleteOnExit Del (del, sizeof (del) / sizeof (Ptr));\n";
+      }
 
     if (! special_names.empty())
       os_src
