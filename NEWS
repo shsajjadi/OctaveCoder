@@ -1,3 +1,9 @@
+coder 1.8.0- 2023-02-13
+---------------------
+
+* Compatibility with Octave 8
+* Fix bugs related to memory leak in nested functions
+
 coder 1.7.0- 2022-03-26
 ---------------------
 
