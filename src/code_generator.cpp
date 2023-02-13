@@ -1692,20 +1692,22 @@ namespace coder_compiler
       os_src << "Const(" << f->second << ")";
   }
 
-  std::unique_ptr<octave::tree_index_expression>
-  static make_index_expression_from_fcn_handle (octave::tree_fcn_handle& expr)
+  bool
+  code_generator::visit_dot_separated_fcn_handle (octave::tree_fcn_handle& expr)
   {
     std::string nm = expr.name ();
 
     size_t pos = nm.find ('.',  0);
 
-    std::unique_ptr<octave::tree_index_expression> result;
+    bool result = false;
 
     if (pos != std::string::npos)
       {
         std::string id_name = nm.substr (0, pos);
 
-        octave::tree_identifier* id = new octave::tree_identifier (octave::symbol_record (id_name), expr.line (), expr.column ());
+        std::string type_tags;
+
+        std::vector<std::string> fields;
 
         for (size_t i = pos+1 ;i < nm.size ();)
           {
@@ -1713,13 +1715,39 @@ namespace coder_compiler
 
             std::string field = nm.substr (i, pos-i);
 
-            if (! result)
-              result.reset(new octave::tree_index_expression (id, field, expr.line (), expr.column ()));
-            else
-              result->append (field);
+            type_tags += ".";
+
+            fields.emplace_back (std::move(field));
 
             i = pos + 1;
           }
+        os_src  << "Index (";
+
+        os_src << mangle(id_name);
+
+        os_src << ", \"" << type_tags << "\"";
+
+        for (auto& str : fields)
+          {
+            std::string text_rep = quote(str) + "__";
+
+            auto f = constant_map.find(text_rep);
+
+            os_src << ", {{ ";
+
+            if(f == constant_map.end())
+              {
+                os_src << "Const(" << nconst << ")";
+
+                constant_map[text_rep] = nconst++;
+              }
+            else
+              os_src << "Const(" << f->second << ")";
+
+            os_src << "}}";
+          }
+
+        os_src  << ")";
       }
 
     return result;
@@ -1729,8 +1757,6 @@ namespace coder_compiler
   code_generator::visit_fcn_handle (octave::tree_fcn_handle&  fh )
   {
     const auto& scope = fcn_scopes.back ();
-
-    auto idx = make_index_expression_from_fcn_handle (fh);
 
     static const std::map<std::string,std::string> special_functions ({
       {"nargin", "NARGIN"},
@@ -1755,9 +1781,9 @@ namespace coder_compiler
       os_src
         <<"Handle(";
 
-    if (idx)
-      idx->accept (*this);
-    else
+    auto idx = visit_dot_separated_fcn_handle (fh);
+
+    if (! idx)
       {
         if (! is_special_function && ! is_nested)
           {
@@ -2648,6 +2674,8 @@ namespace coder_compiler
 
     std::stringstream ss_fcnmake;
 
+    std::stringstream ss_nested_functions;
+
     std::string ordinary_names;
 
     std::string special_names;
@@ -2762,7 +2790,10 @@ namespace coder_compiler
             else
               is_special = false;
 
-            if(! is_special)
+            bool first_parent = nesting_context > 1 && nested_fcn_names.size()>=2
+                                && symbol->name == nested_fcn_names[nested_fcn_names.size() - 2];
+
+            if(! is_special && ! first_parent)
               ss_nested
                 <<  sep(", ")
                 << mangle(symbol->name);
@@ -2797,6 +2828,8 @@ namespace coder_compiler
 
     ss_fcnmake << sep ();
 
+    ss_nested_functions << sep ();
+
     const auto& nested_fcns = scope[(int)symbol_type::nested_fcn];
 
     if (! nested_fcns.empty())
@@ -2807,6 +2840,10 @@ namespace coder_compiler
               << sep(", ")
               << mangle (symbol->name)
               << "make";
+
+            ss_nested_functions
+              << sep(", ")
+              << mangle (symbol->name);
           }
 
         if (nesting_context > 0)
@@ -2859,6 +2896,16 @@ namespace coder_compiler
       << "](coder_value_list& output, const octave_value_list& args, int nargout) mutable\n{\n";
 
     increment_indent_level (os_src);
+
+    if (! nested_fcns.empty ())
+      {
+        os_src
+          << "Ptr del[] = {"
+          << ss_nested_functions.str ()
+          << "};\n"
+
+          << "DeleteOnExit Del (del, sizeof (del) / sizeof (Ptr));\n";
+      }
 
     if (! special_names.empty())
       os_src
