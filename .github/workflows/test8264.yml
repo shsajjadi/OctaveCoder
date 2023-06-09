@@ -1,0 +1,46 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI 8.2.0
+
+# Controls when the workflow will run
+on:
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  test:
+    # The type of runner that the job will run on
+    runs-on: windows-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+
+      # Runs a single command using the runners shell
+      - name: Download Octave
+        run: Invoke-WebRequest https://ftp.gnu.org/gnu/octave/windows/octave-8.2.0-w64.7z -O octave-8.2.0-w64.7z
+
+      - name: Extract Octave
+        run: 7z x octave-8.2.0-w64.7z
+
+      - name: Install coder
+        run: octave-8.2.0-w64\mingw64\bin\octave.bat --eval "pre_install;"
+
+      - name: copy coder
+        run: copy src\octave2oct.oct octave2oct.oct
+
+      - name: compile test
+        run: octave-8.2.0-w64\mingw64\bin\octave.bat --eval '"octave2oct("""randomplot""", """mode""", """static""", """verbose""", 1, """cache""", """cache2""")"'
+
+      - name: write runrp
+        run: Add-Content -Path runrp.m -Value 'function runrp;randomplot(3, 4);end'
+
+      - name: run test
+        run: octave-8.2.0-w64\mingw64\bin\octave.bat --eval '"runrp"'
+
+      - name: list files
+        run: dir
