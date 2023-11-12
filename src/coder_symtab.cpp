@@ -171,6 +171,7 @@ namespace coder_compiler
   {
     std::vector<std::string> symbol_type_str
     {
+      "formal",
       "ordinary",
       "inherited",
       "persistent",

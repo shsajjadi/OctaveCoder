@@ -959,7 +959,8 @@ namespace coder_compiler
           }
         else
           {
-            table.insert_symbol(sym, symbol_type::inherited);
+            if (! table.current_scope()->contains(sym, symbol_type::formal))
+                table.insert_symbol(sym, symbol_type::inherited);
           }
       }
 
@@ -1050,6 +1051,8 @@ namespace coder_compiler
     auto& table = current_file()->current_local_function();
 
     auto sym = std::make_shared<coder_symbol>(name, octave_value (), coder_file_ptr ());
+
+    table.insert_symbol(sym, symbol_type::formal);
 
     table.insert_symbol(sym, symbol_type::ordinary);
 

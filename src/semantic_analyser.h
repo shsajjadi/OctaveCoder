@@ -139,7 +139,6 @@ namespace coder_compiler
       New,
       Updated,
       DependencyUpdated
-
     };
 
     semantic_analyser(void);
