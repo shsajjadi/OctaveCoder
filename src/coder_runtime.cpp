@@ -3253,6 +3253,8 @@ namespace coder
 
             fcn = val->function_value (true);
 
+            bool consumed = false;
+
             if (fcn)
               {
                 coder_value_list first_args;
@@ -3275,6 +3277,8 @@ namespace coder
                       }
 
                     generated_fcn->call (retval, nargout, first_args.back () );
+
+                    consumed = true;
                   }
                 else if (! val->is_function_handle ())
                   {
@@ -3297,20 +3301,26 @@ namespace coder
                       {
                         error ("function indexing error");
                       }
-                  }
-                beg++;
-                p_args++;
 
-                if (n > beg)
-                  {
-                    if (retval.back ().length () == 0)
-                      error ("indexing undefined value");
-                    else
-                      base_expr_val = retval(0);
+                    consumed = true;
                   }
-                else
+
+                if (consumed)
                   {
-                    return;
+                    beg++;
+                    p_args++;
+
+                    if (n > beg)
+                      {
+                        if (retval.back ().length () == 0)
+                          error ("indexing undefined value");
+                        else
+                          base_expr_val = retval(0);
+                      }
+                    else
+                      {
+                        return;
+                      }
                   }
               }
           }
