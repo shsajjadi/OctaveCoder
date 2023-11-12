@@ -19,6 +19,7 @@ namespace coder_compiler
 
   enum class symbol_type
   {
+    formal,
     ordinary,
     inherited,
     persistent,

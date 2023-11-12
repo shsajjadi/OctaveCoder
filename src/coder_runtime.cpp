@@ -114,8 +114,8 @@ namespace coder
         m_nel (1)
     { }
 
-    explicit coder_lvalue (octave_base_value*& sr)
-      : m_sym (&sr), m_black_hole (false),
+    explicit coder_lvalue (void** sr)
+      : m_sym (sr), m_black_hole (false),
         m_type (""), m_nel (1)
     { }
 
@@ -157,7 +157,7 @@ namespace coder
 
   private:
 
-    mutable octave_base_value** m_sym;
+    mutable void** m_sym;
 
     bool m_black_hole;
 
@@ -224,6 +224,8 @@ namespace coder
 
     virtual bool is_Tilde() {return false;}
 
+    virtual octave_base_value * base_value () { return nullptr;}
+
     operator bool();
   };
 
@@ -236,10 +238,19 @@ namespace coder
     LightweightExpression& operator=(LightweightExpression &&)=delete;
   };
 
+  struct refcnt
+  {
+    refcnt (void * value, char type, octave_idx_type count)
+    : value (value), type (type), count (count) {}
+    void * value;
+    char type = 'o';
+    octave_idx_type count;
+  };
+
   struct Symbol : Expression
   {
     explicit Symbol(const char *fcn_name, const char *file_name, const char *path, file_type type );
-    explicit Symbol(octave_base_value* arg):value(arg),reference(this){}
+    explicit Symbol(octave_base_value* arg):value(arg),isreference(false){}
 
     Symbol();
 
@@ -255,21 +266,41 @@ namespace coder
 
     bool is_Symbol() {return true;}
 
-    Symbol*& get_reference()
+    octave_base_value* get_value() const
     {
-      return reference;
+      if (isreference)
+        {
+          auto * ref = static_cast<refcnt*>(value);
+          if (ref->type == 'o')
+            return static_cast<octave_base_value *>(ref->value);
+          else
+            return static_cast<octave_base_value *>(*static_cast<void **>(ref->value));
+        }
+      else
+        {
+          return static_cast<octave_base_value *> (value);
+        }
     }
 
-    octave_base_value*& get_value() const
+    octave_base_value * base_value () { return get_value();}
+
+    void make_static (Symbol& static_sym, char type);
+
+    void** get_reference() const
     {
-      const Symbol* ptr = this;
-
-      while (ptr != ptr->reference)
+      if (isreference)
         {
-          ptr = ptr->reference;
-        }
+          auto * ref = static_cast<refcnt*>(value);
 
-      return  ptr->value;
+          if (ref->type == 'o')
+            return &ref->value;
+          else
+            return static_cast<void **>(ref->value);
+        }
+      else
+        {
+          return &value;
+        }
     }
 
     coder_value
@@ -291,15 +322,74 @@ namespace coder
     bool
     is_function () const;
 
-    mutable octave_base_value* value;
+    mutable void* value;
 
-    Symbol* reference;
+    bool isreference;
   };
+
+  struct Narg : public Expression
+  {
+    Narg (Symbol& sym, Symbol& fun) : sym(sym) ,fun(fun) {}
+
+    coder_value
+    evaluate(int nargout=0,
+      const Endindex& endkey=Endindex(), bool short_circuit=false)
+      {
+        if (sym.is_defined())
+          {
+            return sym.evaluate(nargout, endkey, short_circuit);
+          }
+        else
+          {
+            return fun.evaluate(nargout, endkey, short_circuit);
+          }
+      }
+
+    void
+    evaluate_n(coder_value_list& output,int nargout=1,
+      const Endindex& endkey=Endindex(), bool short_circuit=false)
+    {
+      if (sym.is_defined())
+        {
+          return sym.evaluate_n(output, nargout, endkey, short_circuit);
+        }
+      else
+        {
+          return fun.evaluate_n(output, nargout, endkey, short_circuit);
+        }
+    }
+
+    coder_lvalue lvalue(coder_value_list& lst)
+    {
+      return sym.lvalue(lst);
+    }
+
+    bool is_Symbol() {return true;}
+
+    octave_base_value * base_value ()
+    {
+      return (sym.is_defined() ? sym : fun).get_value();
+    }
+
+    Symbol& sym;
+    Symbol& fun;
+  };
+
+  Symbol Copy (const Symbol& obj);
+
+template <typename T>
+  const T& ConstCast (T&& t)
+  {
+    return t;
+  }
 
   struct Index : LightweightExpression
   {
+    Index(Ptr arg, const char *name, const char *type, Ptr_list_list&& arg_list)
+    : base(arg), name (name), idx_type(type), arg_list(arg_list){}
+
     Index(Ptr arg, const char *type, Ptr_list_list&& arg_list)
-    : base(arg),idx_type(type),arg_list(arg_list){}
+    : base(arg), name (nullptr), idx_type(type), arg_list(arg_list){}
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
 
@@ -309,6 +399,8 @@ namespace coder
     lvalue (coder_value_list&);
 
     Ptr base;
+
+    const char *name;
 
     const char *idx_type;
 
@@ -349,11 +441,13 @@ namespace coder
 
   struct string_literal_dq : Expression
   {
-    explicit string_literal_dq(const char *str) :str(str){  }
+    explicit string_literal_dq(const char *str, std::size_t size) :str (str), size (size) {  }
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
 
     const char *str;
+
+    std::size_t size;
   };
 
   using string_literal = string_literal_sq;
@@ -520,7 +614,7 @@ namespace coder
 
   inline string_literal_dq operator"" _dq( const char *str, std::size_t sz)
   {
-    return string_literal_dq (str);
+    return string_literal_dq (str, sz);
   }
 
   struct Plus : public LightweightExpression
@@ -1157,40 +1251,8 @@ namespace coder
   void make_return_val (coder_value_list&,Ptr expr, int nargout);
   void make_return_val (coder_value_list&);
 
-  inline void AssignByRef( Ptr lhs, Ptr rhs)
-  {
-    static_cast<Symbol&>(lhs.get()).get_reference() = static_cast<Symbol&>(rhs.get()).get_reference();
-  }
-
 template <int size>
     using array = Ptr(&)[size];
-
-template <int size>
-  void AssignByRef( array<size>& lhs, array<size>& rhs)
-  {
-    Ptr* in = rhs;
-
-    for (Ptr out: lhs )
-      {
-        AssignByRef(out,*in++);
-      }
-  }
-
-  inline void AssignByVal( Ptr lhs, Ptr rhs)
-  {
-    static_cast<Symbol&>(lhs.get()) = static_cast<Symbol&>(rhs.get());
-  }
-
-template <int size>
-  void AssignByVal( array<size>& lhs, array<size>& rhs)
-  {
-    Ptr* in = rhs;
-
-    for (Ptr out: lhs )
-      {
-        AssignByVal(out,*in++);
-      }
-  }
 
 template <int size>
   void AssignByRefInit( array<size>& lhs, array<size>& rhs)
@@ -1202,86 +1264,16 @@ template <int size>
         auto& in_sym = static_cast<Symbol&>(in->get());
 
         if (in_sym.is_defined() && !in_sym.is_function())
-          AssignByRef(out,*in++);
+          static_cast<Symbol&>(out.get()).make_static (in_sym, 'p');
+
+        ++in;
+
       }
   }
-
-template <int size>
-  void AssignByRefCon( array<size>& lhs, array<size>& rhs,const Ptr_list& macr)
-  {
-    Ptr* sym_name = rhs;
-
-    auto fcn_impl = macr.begin();
-
-    for (Ptr out: lhs )
-      {
-        auto& name = static_cast<Symbol&>(sym_name->get());
-
-        if(name.is_defined() )
-          {
-            if(name.is_function())
-              {
-                AssignByVal(out, *fcn_impl);
-              }
-            else
-              AssignByRef(out,*sym_name);
-          }
-        else
-          AssignByRef(out,*sym_name);
-
-        sym_name++;
-
-        fcn_impl++;
-      }
-  }
-
-template <int size>
-  void AssignByValCon( array<size>& lhs, array<size>& rhs,const Ptr_list& macr)
-  {
-    Ptr* sym_name = rhs;
-
-    auto fcn_impl = macr.begin ();
-
-    for (Ptr out: lhs )
-      {
-        auto& name = static_cast<Symbol&>(sym_name->get());
-        if(name.is_defined() )
-          {
-            if(name.is_function())
-              {
-                AssignByVal(out,*fcn_impl);
-              }
-            else
-              AssignByVal(out,*sym_name);
-          }
-        else
-          AssignByVal(out,*sym_name);
-
-        sym_name++;
-
-        fcn_impl++;
-      }
-  }
-
-  struct DeleteOnExit
-  {
-    DeleteOnExit (Ptr * del, int sz) : delete_list (del), size (sz) {}
-    ~DeleteOnExit ()
-    {
-      for (int i = 0; i < size; i++)
-        {
-          static_cast<Symbol&>(delete_list[i].get ()) = {};
-        }
-    }
-
-    Ptr * delete_list;
-
-    int size;
-  };
 
   void SetEmpty(Symbol& id);
 
-  bool isargout1 (int nargout, double k);
+  bool isargout1 (int nargout, const coder_value_list& caller_output, double k);
 
   void
   call_narginchk (coder_value_list& output, int nargin, const octave_value_list& arg);
@@ -1296,7 +1288,10 @@ template <int size>
   call_nargout (coder_value_list& output, int nargout, const octave_value_list& arg, int nout);
 
   void
-  call_isargout (coder_value_list& output, int nargout, const octave_value_list& arg, int nout);
+  call_isargout (coder_value_list& output, int nargout, const coder_value_list& caller_output, const octave_value_list& arg, int nout);
+
+  void
+  call_feval (coder_value_list& output, const octave_value_list& args, int nargout);
 
   void recover_from_execution_excep ();
 
@@ -1397,7 +1392,7 @@ template <int size>
   if (! globals_0::X##make().is_defined ()) {\
     SetEmpty( globals_0::X##make() );\
   } \
-  AssignByRef( X , globals_0::X##make() );\
+  X.make_static( globals_0::X##make() , 'g' );\
 }
 
 #define GLOBALASSIGN(X,Y)\
@@ -1405,7 +1400,7 @@ template <int size>
   if (! globals_0::X##make().is_defined ()) {\
     Assign( globals_0::X##make() , Y ).evaluate();\
   }\
-  AssignByRef( X , globals_0::X##make() );\
+  X.make_static( globals_0::X##make() , 'g' );\
 }
 
 #define PERSISTENT(X)\
@@ -1415,7 +1410,7 @@ template <int size>
       call_error("can't make variable X persistent");\
     SetEmpty( persistents.X );\
   }\
-  AssignByRef( X , persistents.X );\
+  X.make_static( persistents.X , 'p' );\
 }
 
 #define PERSISTENTASSIGN(X,Y)\
@@ -1425,7 +1420,7 @@ template <int size>
       call_error("can't make variable X persistent");\
     Assign( persistents.X , Y ).evaluate();\
   }\
-  AssignByRef( X , persistents.X );\
+  X.make_static( persistents.X , 'p' );\
 }
 
 #if OCTAVE_MAJOR_VERSION >=6
@@ -1635,7 +1630,7 @@ template <int size>
   } while ( !con );\
 }
 
-#define NARGINCHK ([&args]()\
+#define NARGINCHK_MAKER Symbol narginchk_maker(([&args]()\
 {\
   int nargin = ovl_length(args);\
   return Symbol(fcn2ov(\
@@ -1643,15 +1638,19 @@ template <int size>
     {\
       return call_narginchk (output, nargin, arg);\
     }));\
-})()
+})());
 
-#define NARGOUTCHK Symbol(fcn2ov(\
+#define NARGINCHK Narg(narginchk_, narginchk_maker)
+
+#define NARGOUTCHK_MAKER Symbol narginchk_maker(fcn2ov(\
   [nargout](coder_value_list& output, const octave_value_list& arg, int nout)->void \
   {\
     return call_nargoutchk (output, nargout, arg, nout);\
   }))
 
-#define NARGIN (\
+#define NARGOUTCHK Narg(nargoutchk_, nargoutchk_maker)
+
+#define NARGIN_MAKER Symbol nargin_maker((\
   [&args]()\
   {\
     int nargin = ovl_length(args);\
@@ -1660,19 +1659,25 @@ template <int size>
       {\
         return call_nargin (output, nargin, arg, nout);\
       }));\
-  })()
+  })());
 
-#define NARGOUT Symbol(fcn2ov(\
+#define NARGIN Narg(nargin_, nargin_maker)
+
+#define NARGOUT_MAKER Symbol nargout_maker(fcn2ov(\
   [nargout](coder_value_list& output, const octave_value_list& arg, int nout)->void \
   {\
     return call_nargout (output, nargout, arg, nout);\
-  }))
+  }));
 
-#define ISARGOUT Symbol(fcn2ov(\
-  [nargout](coder_value_list& output, const octave_value_list& arg, int nout)->void\
+#define NARGOUT Narg(nargout_, nargout_maker)
+
+#define ISARGOUT_MAKER Symbol isargout_maker(fcn2ov(\
+  [nargout, &output](coder_value_list& out, const octave_value_list& arg, int nout)->void\
   {\
-    return call_isargout (output, nargout, arg, nout);\
-  }))
+    return call_isargout (out, nargout, output, arg, nout);\
+  }));
+
+#define ISARGOUT Narg(isargout_, isargout_maker)
 
 #define DEFCODER_DLD(name, interp, args, nargout, doc, fcn_body)        \
   extern "C"                                                            \
@@ -1750,20 +1755,39 @@ namespace coder
   GETMEMBER(octave_base_value_count, octave_base_value, octave::refcount<octave_idx_type>, count)
 
 #if OCTAVE_MAJOR_VERSION >= 7
-  static void grab (octave_base_value * val)
+  static void grab (void * value)
   {
+    octave_base_value * val = static_cast<octave_base_value *> (value);
+
     ++(val->*get(octave_base_value_count ()));
   }
+
+  static void release (void * value)
+  {
+    octave_base_value * val = static_cast<octave_base_value *> (value);
+
+    static const octave_base_value * nil_rep = octave_value().internal_rep();
+
+    if (val && --(val->*get(octave_base_value_count ())) == 0 && val != nil_rep)
+      delete val;
+  }
 #else
-  static void grab (octave_base_value * val)
+  static void grab (void * value)
   {
     val->grab ();
+  }
+
+  static void release (void * value)
+  {
+    octave_base_value * val = static_cast<octave_base_value *> (value);
+
+    val->release ();
   }
 #endif
   coder_value::~coder_value()
   {
     if (val)
-      octave_value (val, false);
+      release (val);
   }
 
   coder_value::coder_value (coder_value&& v)
@@ -1775,7 +1799,7 @@ namespace coder
   coder_value& coder_value::operator= (coder_value&& v)
   {
     if (val)
-      octave_value (val, false);
+      release (val);
 
     val = v.val;
 
@@ -1897,14 +1921,14 @@ namespace coder
   class coder_value_list
   {
    public:
-    coder_value_list (bool multiassign = false):
+    coder_value_list (coder_lvalue * out_args = nullptr):
     m_list (),
-    used_in_multiassign (multiassign)
+    out_args (out_args)
     {
     }
 
-    coder_value_list (octave_idx_type n, bool multiassign = false):
-    used_in_multiassign (multiassign)
+    coder_value_list (octave_idx_type n, coder_lvalue * out_args = nullptr):
+    out_args (out_args)
     {
       m_list = Pool::alloc (n);
     }
@@ -1953,6 +1977,13 @@ namespace coder
       m_list.splice (m_list.end (), new_list);
     }
 
+    void append (octave_value_list&& val)
+    {
+      auto new_list = Pool::alloc (0);
+      new_list.back () = std::move (val);
+      m_list.splice (m_list.end (), new_list);
+    }
+
     void append_first (coder_value_list& other)
     {
       m_list.splice (m_list.end (), other.m_list, other.m_list.begin ());
@@ -1985,12 +2016,18 @@ namespace coder
 
     bool is_multi_assigned () const
     {
-      return used_in_multiassign;
+      return bool (out_args);
+    }
+
+    coder_lvalue *  output_lvalues () const
+    {
+      return out_args;
     }
 
   private:
     std::list<octave_value_list> m_list;
-    bool used_in_multiassign;
+
+    coder_lvalue * out_args;
   };
 
   class coder_function_base
@@ -2287,24 +2324,26 @@ namespace coder
   bool
   coder_lvalue::is_defined (void) const
   {
-    return ! is_black_hole () && (*m_sym)->is_defined () && ! (*m_sym)->is_function ();
+    return ! is_black_hole () && static_cast<octave_base_value *>((*m_sym))->is_defined ()
+    && ! static_cast<octave_base_value *>((*m_sym))->is_function ();
   }
 
   bool
   coder_lvalue::is_undefined (void) const
   {
-    return is_black_hole () || ! (*m_sym)->is_defined () || (*m_sym)->is_function ();
+    return is_black_hole () || ! static_cast<octave_base_value *>((*m_sym))->is_defined ()
+    || static_cast<octave_base_value *>((*m_sym))->is_function ();
   }
 
   void coder_lvalue::define (const octave_value& v  )
   {
-    octave_value tmp(*m_sym);
+    octave_value tmp(static_cast<octave_base_value *>(*m_sym));
 
     tmp.assign (octave_value::op_asn_eq, v);
 
     *m_sym = tmp.internal_rep ();
 
-    grab (*m_sym);
+    grab (static_cast<octave_base_value *>(*m_sym));
   }
 
   void
@@ -2315,7 +2354,7 @@ namespace coder
 
     if (! is_black_hole ())
       {
-        octave_value tmp(*m_sym);
+        octave_value tmp(static_cast<octave_base_value *>(*m_sym));
 
         if (tmp.is_function ())
           tmp = octave_value ();
@@ -2327,7 +2366,7 @@ namespace coder
 
         *m_sym = tmp.internal_rep ();
 
-        grab (*m_sym);
+        grab (static_cast<octave_base_value *>(*m_sym));
       }
   }
 
@@ -2384,7 +2423,7 @@ namespace coder
 
     if (! is_black_hole ())
       {
-        octave_value tmp(*m_sym);
+        octave_value tmp(static_cast<octave_base_value *>(*m_sym));
 #if OCTAVE_MAJOR_VERSION >= 7
         if (m_idx.empty ())
           tmp.non_const_unary_op ((octave_value::unary_op)op);
@@ -2398,7 +2437,7 @@ namespace coder
 #endif
         *m_sym = tmp.internal_rep ();
 
-        grab (*m_sym);
+        grab (static_cast<octave_base_value *>(*m_sym));
       }
   }
 
@@ -2413,17 +2452,17 @@ namespace coder
       {
         if (m_idx.empty ())
           {
-            grab (*m_sym);
+            grab (static_cast<octave_base_value *>(*m_sym));
 
-            return coder_value(*m_sym);
+            return coder_value(static_cast<octave_base_value *>(*m_sym));
           }
         else
           {
-            if ((*m_sym)->is_constant ())
-              retval = (*m_sym)->subsref (m_type, m_idx);
+            if (static_cast<octave_base_value *>(*m_sym)->is_constant ())
+              retval = static_cast<octave_base_value *>(*m_sym)->subsref (m_type, m_idx);
             else
               {
-                octave_value_list t = (*m_sym)->subsref (m_type, m_idx, 1);
+                octave_value_list t = static_cast<octave_base_value *>(*m_sym)->subsref (m_type, m_idx, 1);
 
                 if (t.length () > 0)
                   retval = t(0);
@@ -2562,87 +2601,193 @@ namespace coder
 
     value = tmp.internal_rep ();
 
-    grab (value);
+    grab (static_cast<octave_base_value *>(value));
 
-    reference = this;
+    isreference = false;
   }
 
   Symbol::Symbol (const Symbol& other)
   {
-    value = other.get_value ();
+    Symbol& L =  *this;
 
-    if (value)
-      grab (value);
+    Symbol& R =  const_cast<Symbol&> (other);
 
-    reference = this;
+    if (! R.isreference)
+      {
+        R.value = new refcnt (R.value , 'o', octave_idx_type(2));
+
+        R.isreference = true;
+      }
+    else
+      {
+        if (R.value)
+          {
+            ++static_cast<refcnt *>(R.value)->count;
+          }
+      }
+
+    L.value = R.value;
+    L.isreference = true;
   }
 
   Symbol::Symbol (Symbol&& other)
   {
-    if (other.reference != &other)
+    Symbol& L =  *this;
+    Symbol& R =  other;
+
+    octave_base_value * rv = 0;
+
+    if (! R.isreference)
       {
-        reference = other.reference;
+        rv = static_cast<octave_base_value *>(R.value);
+        if (rv)
+          grab (rv);
       }
     else
       {
-        reference = this;
+        if (R.value)
+          {
+            rv = static_cast<octave_base_value *>(static_cast<refcnt *>(R.value)->value);
+
+            if (rv)
+              grab (rv);
+          }
       }
 
-    value = other.value;
-
-    other.value = nullptr;
+    L.value = rv;
+    L.isreference = false;
   }
 
   Symbol& Symbol::operator=(const Symbol& other)
   {
-    octave_base_value* tmp = other.get_value ();
+    Symbol& L =  *this;
+    Symbol& R =  const_cast<Symbol&> (other);
 
-    if (tmp != value)
+    if (! L.isreference)
       {
-        if (value )
-          octave_value (value, false);
+        release (static_cast<octave_base_value *>(L.value));
 
-        value = tmp;
+        if (! R.isreference)
+          {
+            L.value = new refcnt (R.value , 'o', octave_idx_type(2));
+            L.isreference = true;
+            R.value = L.value;
+            R.isreference = true;
+          }
+        else
+          {
+            L.value = R.value;
+            L.isreference = true;
+            if (R.value)
+              ++static_cast<refcnt *>(R.value)->count;
+          }
+      }
+    else
+      {
+        if (! R.isreference)
+          {
+            if (L.value)
+              {
+                auto * ref = static_cast<refcnt *>(L.value);
 
-        if (value )
-          grab(value);
+                release(static_cast<octave_base_value *>(ref->value));
+
+                ref->value = R.value;
+
+                ++ref->count;
+              }
+
+            R.value = L.value;
+
+            R.isreference = true;
+          }
       }
 
-    reference = this;
-
-    return *this;
+    return L;
   }
 
   Symbol& Symbol::operator=(Symbol&& other)
   {
-    if (value )
-      octave_value (value, false);
+    Symbol& L =  *this;
+    Symbol& R =  other;
 
-    value = other.value;
+    if (L.value == R.value)
+      return L;
 
-    other.value = nullptr;
+    octave_base_value * rv = 0;
 
-    if (other.reference != &other)
+    if (! R.isreference)
       {
-        reference = other.reference;
+        rv = static_cast<octave_base_value *>(R.value);
+        if (rv)
+          grab (rv);
       }
     else
       {
-        reference = this;
+        if (R.value)
+          {
+            rv = static_cast<octave_base_value *>(static_cast<refcnt *>(R.value)->value);
+
+            if (rv)
+              grab (rv);
+          }
       }
 
-    return *this;
+    if (! L.isreference)
+      {
+        if (L.value)
+          release (L.value);
+
+        L.value = rv;
+      }
+    else
+      {
+        if (L.value)
+          {
+            auto * ref = static_cast<refcnt *>(L.value);
+
+            if (--ref->count == 0)
+              {
+                if (ref->value && ref->type == 'o')
+                  {
+                    release (ref->value);
+                  }
+
+                delete ref;
+              }
+          }
+
+        L.value = rv;
+        L.isreference = false;
+      }
+
+    return L;
   }
 
   Symbol::~Symbol ()
   {
-    if (value)
-      octave_value (value, false);
+    if (isreference)
+      {
+        auto * ref = static_cast<refcnt*>(value);
+
+        if (--ref->count == 0)
+          {
+            if (ref->value && ref->type == 'o' )
+              release (ref->value);
+
+            delete ref;
+          }
+      }
+    else
+      {
+        if (value)
+          release (value);
+      }
   }
 
   Symbol::Symbol(const char *fcn_name, const char *file_name,
   const char *path, file_type type )
-  : reference (this)
+  : isreference (false)
   {
     switch (type)
       {
@@ -2661,7 +2806,9 @@ namespace coder
             {
               value = tmpfcn;
 
-              grab (value);
+              grab (static_cast<octave_base_value *>(value));
+
+              isreference = false;
             }
           else
             {
@@ -2686,7 +2833,9 @@ namespace coder
             {
               value = tmpfcn;
 
-              grab (value);
+              grab (static_cast<octave_base_value *>(value));
+
+              isreference = false;
             }
           else
             {
@@ -2714,11 +2863,16 @@ namespace coder
             {
               value = klass_meth.internal_rep ();
 
-              grab (value);
+              grab (static_cast<octave_base_value *>(value));
+
+              isreference = false;
             }
 #else
           if (klass_meth)
-            value = klass_meth;
+            {
+              value = klass_meth;
+              isreference = false;
+            }
 #endif
           else
             error("cannot find class %s in path %s", fcn_name, path);
@@ -2742,11 +2896,17 @@ namespace coder
             {
               value = pack_sym.internal_rep ();
 
-              grab (value);
+              grab (static_cast<octave_base_value *>(value));
+
+              isreference = false;
             }
 #else
           if (pack_sym)
-            value = pack_sym;
+            {
+              value = pack_sym;
+
+              isreference = false;
+            }
 #endif
           else
             error("cannot find package %s in path %s", fcn_name, path);
@@ -2811,7 +2971,7 @@ namespace coder
               }
           }
 
-        grab (value);
+        grab (static_cast<octave_base_value *>(value));
 
         return coder_value(value);
       }
@@ -2865,13 +3025,13 @@ namespace coder
   coder_lvalue
   Symbol::lvalue(coder_value_list& idx)
   {
-    return coder_lvalue(get_value());
+    return coder_lvalue(get_reference());
   }
 
   void
   Symbol::call (coder_value_list& output, int nargout, const octave_value_list& args)
   {
-    coder_function_base* fcn = dynamic_cast<coder_function_base *> (value);
+    coder_function_base* fcn = dynamic_cast<coder_function_base *> (static_cast<octave_base_value *>(get_value()));
 
     if (fcn)
       fcn->call (output, nargout, args);
@@ -2891,6 +3051,57 @@ namespace coder
     octave_base_value* val = get_value ();
 
     return val && val->is_function ();
+  }
+
+  void
+  Symbol::make_static (Symbol& static_sym, char type)
+  {
+    if (isreference)
+      {
+        auto * ref = static_cast<refcnt*>(value);
+
+        if (ref->type == 'o')
+          {
+            release(static_cast<octave_base_value *>(ref->value));
+
+            ref->value = static_sym.get_reference();
+
+            ref->type = type;
+          }
+      }
+    else
+      {
+        isreference = true;
+
+        release(static_cast<octave_base_value *> (value));
+
+        value = new refcnt (static_cast<void*>(static_sym.get_reference()), type, octave_idx_type (1));
+      }
+  }
+
+  Symbol Copy (const Symbol& obj)
+  {
+
+    if (! obj.isreference)
+      {
+        if (obj.value)
+          grab( static_cast<octave_base_value *>(obj.value));
+
+        return Symbol (static_cast<octave_base_value *>(obj.value));
+      }
+    else
+      {
+        if (obj.value)
+          {
+            octave_base_value * bv = static_cast<octave_base_value *>(static_cast<refcnt *> (obj.value)->value);
+
+            grab(bv);
+
+            return Symbol (bv);
+          }
+
+        return Symbol ();
+      }
   }
 
   coder_value_list
@@ -3006,6 +3217,34 @@ namespace coder
     return octave_value (val, false);
   }
 
+  static bool
+  method_dispatch (coder_value_list& retval, const char * name, coder_value_list& args, int nargout)
+  {
+    bool called = false;
+
+    auto& indexed_object = args.back ()(0);
+
+    if (indexed_object.isobject ())
+      {
+        std::string class_name = indexed_object.class_name ();
+
+        octave::symbol_table& symtab = octave::interpreter::the_interpreter () ->get_symbol_table ();
+
+        octave_value meth = symtab.find_method (name, class_name);
+
+        if (meth.is_defined ())
+          {
+            octave::tree_evaluator& ev = octave::interpreter::the_interpreter () -> get_evaluator ();
+
+            retval.append (meth.function_value ()->call (ev, nargout, args.back ()));
+
+            called = true;
+          }
+      }
+
+    return called;
+  }
+
   coder_value
   Index::evaluate ( int nargout, const Endindex& endkey, bool short_circuit)
   {
@@ -3053,17 +3292,19 @@ namespace coder
 
     coder_value_list idx ;
 
-    if (expr->is_Symbol () && type[beg] == '(')
-      {
-        Symbol& id = static_cast<Symbol&>(expr.get());
+    octave_base_value * symbol_value = expr->base_value ();
 
+    if (symbol_value && type[beg] == '(')
+      {
         if (true)
           {
             octave_function *fcn = nullptr;
 
-            octave_base_value* val = id.get_value();
+            octave_base_value* val = symbol_value;
 
             fcn = val->function_value (true);
+
+            bool consumed = false;
 
             if (fcn)
               {
@@ -3080,36 +3321,63 @@ namespace coder
                           : endkey;
 
                         first_args.append (convert_to_const_vector( *p_args, endindex));
+
+                         consumed = method_dispatch (retval, this->name, first_args, nargout);
                       }
                     else
                       {
                         first_args.append (coder_value_list{octave_idx_type(0)});
                       }
 
-                    generated_fcn->call (retval, nargout, first_args.back () );
+                    if (! consumed)
+                      {
+                        generated_fcn->call (retval, nargout, first_args.back () );
+
+                        consumed = true;
+                      }
                   }
                 else if (! val->is_function_handle ())
                   {
                     if (p_args->size() > 0)
                       {
-                          first_args.append (convert_to_const_vector( *p_args, endkey));
+                        first_args.append (convert_to_const_vector( *p_args, endkey));
+
+                        consumed = method_dispatch (retval, this->name, first_args, nargout);
                       }
                     else
                       {
                         first_args.append (coder_value_list {octave_idx_type(0)});
                       }
 
-                    try
+                    if (! consumed)
                       {
-                        octave::tree_evaluator& ev = octave::interpreter::the_interpreter () -> get_evaluator ();
+                        try
+                          {
+                            octave::tree_evaluator& ev = octave::interpreter::the_interpreter () -> get_evaluator ();
 
-                        retval.append (fcn->call (ev, nargout, first_args.back ()));
-                      }
-                    catch (octave::index_exception& e)
-                      {
-                        error ("function indexing error");
+                            retval.append (fcn->call (ev, nargout, first_args.back ()));
+                          }
+                        catch (octave::index_exception& e)
+                          {
+                            error ("function indexing error");
+                          }
+
+                        consumed = true;
                       }
                   }
+
+              }
+            else if (p_args->size() > 0 && ! val-> is_defined ())
+              {
+                coder_value_list first_args;
+
+                first_args.append (convert_to_const_vector( *p_args, endkey));
+
+                consumed = method_dispatch (retval, this->name, first_args, nargout);
+              }
+
+            if (consumed)
+              {
                 beg++;
                 p_args++;
 
@@ -3510,7 +3778,7 @@ namespace coder
   coder_value
   NullSqStr::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
   {
-    return octave_null_sq_str::instance;;
+    return octave_null_sq_str::instance;
   }
 
   coder_value
@@ -3522,7 +3790,11 @@ namespace coder
   coder_value
   string_literal_dq::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
   {
-    return (octave_value(str,'"'));
+    Array<char> arr (dim_vector (1, size));
+
+    std::memcpy (arr.fortran_vec (), str, size);
+
+    return octave_value (arr, '"');
   }
 
   coder_value double_literal::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
@@ -4162,7 +4434,7 @@ namespace coder
         n_blackhole += lvalue_list[i].is_black_hole();
       }
 
-    coder_value_list rhs_val1 (true);
+    coder_value_list rhs_val1 (lvalue_list);
 
     rhs->evaluate_n (rhs_val1, n_out , endkey);
 
@@ -4422,20 +4694,22 @@ namespace coder
     if (fmaker)
       {
 #if OCTAVE_MAJOR_VERSION >= 6
-        return coder_value(new octave_fcn_handle (octave_value(fmaker ().get_value(), true)));
+        return coder_value(new octave_fcn_handle (octave_value(static_cast<octave_base_value *>(fmaker ().get_value()), true)));
 #else
-        return coder_value(new octave_fcn_handle (octave_value(fmaker ().get_value(), true), name));
+        return coder_value(new octave_fcn_handle (octave_value(static_cast<octave_base_value *>(fmaker ().get_value()), true), name));
 #endif
       }
 
     auto rhs = op_rhs.get ();
 
-    if (rhs.is_Symbol ())
+    octave_base_value * bv = rhs.base_value();
+
+    if (bv)
       {
 #if OCTAVE_MAJOR_VERSION >= 6
-        return coder_value(new octave_fcn_handle (octave_value(static_cast<Symbol&>(op_rhs.get()).get_value(), true)));
+        return coder_value(new octave_fcn_handle (octave_value(bv, true)));
 #else
-        return coder_value(new octave_fcn_handle (octave_value(static_cast<Symbol&>(op_rhs.get()).get_value(), true), name));
+        return coder_value(new octave_fcn_handle (octave_value(bv, true), name));
 #endif
       }
 #if OCTAVE_MAJOR_VERSION >= 6
@@ -4541,9 +4815,9 @@ namespace coder
   }
 
 #if OCTAVE_MAJOR_VERSION >= 6
-  NestedHandle::NestedHandle(Ptr arg, const char* name) : value(new octave_fcn_handle (octave_value(static_cast<Symbol&>(arg.get()).get_value(), true))){}
+  NestedHandle::NestedHandle(Ptr arg, const char* name) : value(new octave_fcn_handle (octave_value(arg->base_value(), true))){}
 #else
-  NestedHandle::NestedHandle(Ptr arg, const char* name) : value(new octave_fcn_handle (octave_value(static_cast<Symbol&>(arg.get()).get_value(), true), name)){}
+  NestedHandle::NestedHandle(Ptr arg, const char* name) : value(new octave_fcn_handle (octave_value(arg->base_value(), true), name)){}
 #endif
 
   coder_value
@@ -4664,6 +4938,7 @@ namespace coder
 
     return  (retval(0));
   }
+
   coder_value
   Constant::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
   {
@@ -4855,10 +5130,10 @@ namespace coder
       {
         Expression& ex = *ret++;
 
-        Symbol* sym = static_cast<Symbol*>(&ex);
+        auto * sym = ex.base_value ();
 
         if (sym)
-          retval(i) = octave_value(sym->get_value(), true);
+          retval(i) = octave_value(sym, true);
       }
 
     if (nargout == 1 && ! output.is_multi_assigned () && retval(0).is_undefined ())
@@ -4876,13 +5151,11 @@ namespace coder
 
     octave_value_list & retval = output.back ();
 
-    Expression& ex = varout;
+    octave_base_value* sym = varout->base_value ();
 
-    Symbol* sym = static_cast<Symbol*>(&ex);
+    const octave_base_value* val = sym;
 
-    const octave_base_value* val = sym->get_value();
-
-    if (val->is_defined ())
+    if (val && val->is_defined ())
       {
         int vlen=0;
 
@@ -4906,13 +5179,11 @@ namespace coder
   void
   make_return_list(coder_value_list& output, Ptr varout)
   {
-    Expression& ex = varout;
+    octave_base_value* sym = varout->base_value ();
 
-    Symbol* sym = static_cast<Symbol*>(&ex);
+    const octave_base_value* val = sym;
 
-    const octave_base_value* val = sym->get_value();
-
-    if (! val->is_defined ())
+    if (!val || ! val->is_defined ())
       {
         output.append (coder_value_list {octave_idx_type(0)});
 
@@ -4951,20 +5222,38 @@ namespace coder
 
     grab (val);
 
-    octave_base_value*& id_val = id.get_value ();
+    void** id_val = id.get_reference ();
 
-    if (id_val)
-      octave_value (id_val, false);
+    if (*id_val)
+      release (static_cast<octave_base_value*>(*id_val));
 
-    id_val = val;
+    *id_val = val;
   }
 
-  bool isargout1 (int nargout, double k)
+  bool isargout1 (int nargout, const coder_value_list& caller_output, double k)
   {
-    if (k != octave::math::round (k) || k <= 0)
+    if (k != octave::math::fix (k) || k <= 0)
       error ("isargout: K must be a positive integer");
 
-    return (k == 1 || k <= nargout) ;
+    if (! (k == 1 || k <= nargout))
+      return false;
+
+    if (! caller_output.is_multi_assigned())
+      return true;
+
+    coder_lvalue * lvalue = caller_output.output_lvalues();
+
+    for(int nel = 0; nel != nargout; ++lvalue)
+      {
+        nel += lvalue->numel ();
+
+        if (nel == k)
+          return ! lvalue->is_black_hole ();
+        else if (nel > k)
+          return true;
+      }
+
+    return false;
   }
 
   void
@@ -5123,9 +5412,8 @@ namespace coder
       }
   }
 
-  //FIXME : always returns true!
   void
-  call_isargout (coder_value_list& output, int nargout, const octave_value_list& arg, int nout)
+  call_isargout (coder_value_list& output, int nargout, const coder_value_list& caller_output, const octave_value_list& arg, int nout)
   {
     auto& result = output;
 
@@ -5145,7 +5433,7 @@ namespace coder
     if (arg(0).is_scalar_type ())
       {
         double k = arg (0).double_value ();
-        retval =  octave_value (isargout1 (nargout, k));
+        retval =  octave_value (isargout1 (nargout, caller_output, k));
       }
     else if (arg (0).isnumeric ())
       {
@@ -5154,12 +5442,53 @@ namespace coder
         boolNDArray r (ka.dims ());
 
         for (octave_idx_type i = 0; i < ka.numel (); i++)
-          r (i) = isargout1 (nargout, ka(i));
+          r (i) = isargout1 (nargout, caller_output, ka(i));
 
         retval = octave_value (r);
       }
     else
       err_wrong_type_arg ("isargout", arg (0));
+  }
+
+  void call_feval (coder_value_list& output, const octave_value_list& args, int nargout)
+  {
+    bool executed = false;
+
+    if (args.length ())
+      {
+        coder_function_base * generated_fcn =
+              dynamic_cast<coder_function_base *> (args(0).internal_rep ());
+
+        if (generated_fcn)
+          {
+            coder_value_list farg (octave_idx_type (args.length () - 1));
+
+            octave_value_list& fcn_args = farg.back();
+
+            for (octave_idx_type i = 1; i < args.length (); ++i)
+              {
+                fcn_args (i-1) = args (i);
+              }
+
+            generated_fcn->call (output, nargout, fcn_args);
+
+            executed = true;
+          }
+      }
+
+    if (! executed)
+      {
+        octave::interpreter& interp = *octave::interpreter::the_interpreter ();
+
+        octave_value_list retval = OCTAVE_DEPR_NS Ffeval (interp, args, nargout);
+
+        retval.make_storable_values ();
+
+        if (retval.length () == 1 && retval.xelem (0).is_undefined ())
+          retval.clear ();
+
+        output.append (std::move (retval));
+      }
   }
 
   void recover_from_execution_excep ()
@@ -5353,30 +5682,30 @@ namespace coder
             {
               m_first_loop = false;
 
-              octave_value val {m_sym};
+              octave_value val {static_cast<octave_base_value *>(m_sym)};
 
               val = rhs;
 
               m_sym = val.internal_rep ();
 
-              grab (m_sym);
+              grab (static_cast<octave_base_value *>(m_sym));
 
               return;
             }
 
-          if (ult_idx.empty () && (m_fast_loop || coder_is_scalar(m_sym)))
+          if (ult_idx.empty () && (m_fast_loop || coder_is_scalar(static_cast<octave_base_value *>(m_sym))))
             {
-              if (m_sym->*get(octave_base_value_count ()) == 1)
+              if (static_cast<octave_base_value *>(m_sym)->*get(octave_base_value_count ()) == 1)
                 static_cast<octave_base_scalar<double> *>(m_sym)->scalar_ref() = rhs;
               else
                 {
-                  octave_value val {m_sym};
+                  octave_value val {static_cast<octave_base_value *>(m_sym)};
 
                   val = rhs;
 
                   m_sym = val.internal_rep ();
 
-                  grab (m_sym);
+                  grab (static_cast<octave_base_value *>(m_sym));
                 }
 
               return;

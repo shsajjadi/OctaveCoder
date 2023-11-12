@@ -842,7 +842,7 @@ namespace coder_compiler
         << mangle(sym_name) << "make()\n  {\n"
         << "    static const Symbol "
         << mangle(sym_name)
-        << " (" << nsname  << "::" << mangle (sym_name) << "make()" << ");\n"
+        << " (Copy (" << nsname  << "::" << mangle (sym_name) << "make()" << "));\n"
         << "    return " << mangle(sym_name) << ";\n"
         << "  }\n}\n";
 
