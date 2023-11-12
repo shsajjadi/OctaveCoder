@@ -3349,6 +3349,14 @@ namespace coder_compiler
         if (bif(i) == "__shutdown_qt__")
           continue;
 
+        if (bif(i) == "feval")
+          {
+            os_src
+              << "const Symbol& feval_make() { static const Symbol feval_ (fcn2ov(call_feval)); return feval_;}\n";
+
+              continue;
+          }
+
         if (! (bif(i).size() > 5 && bif(i).substr(0,5) == "meta."))
           {
             os_src << "const Symbol& ";

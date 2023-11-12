@@ -1290,6 +1290,9 @@ template <int size>
   void
   call_isargout (coder_value_list& output, int nargout, const coder_value_list& caller_output, const octave_value_list& arg, int nout);
 
+  void
+  call_feval (coder_value_list& output, const octave_value_list& args, int nargout);
+
   void recover_from_execution_excep ();
 
   void recover_from_execution_and_interrupt_excep ();
@@ -1971,6 +1974,13 @@ namespace coder
     {
       auto new_list = Pool::alloc (0);
       new_list.back () = val;
+      m_list.splice (m_list.end (), new_list);
+    }
+
+    void append (octave_value_list&& val)
+    {
+      auto new_list = Pool::alloc (0);
+      new_list.back () = std::move (val);
       m_list.splice (m_list.end (), new_list);
     }
 
@@ -5438,6 +5448,47 @@ namespace coder
       }
     else
       err_wrong_type_arg ("isargout", arg (0));
+  }
+
+  void call_feval (coder_value_list& output, const octave_value_list& args, int nargout)
+  {
+    bool executed = false;
+
+    if (args.length ())
+      {
+        coder_function_base * generated_fcn =
+              dynamic_cast<coder_function_base *> (args(0).internal_rep ());
+
+        if (generated_fcn)
+          {
+            coder_value_list farg (octave_idx_type (args.length () - 1));
+
+            octave_value_list& fcn_args = farg.back();
+
+            for (octave_idx_type i = 1; i < args.length (); ++i)
+              {
+                fcn_args (i-1) = args (i);
+              }
+
+            generated_fcn->call (output, nargout, fcn_args);
+
+            executed = true;
+          }
+      }
+
+    if (! executed)
+      {
+        octave::interpreter& interp = *octave::interpreter::the_interpreter ();
+
+        octave_value_list retval = OCTAVE_DEPR_NS Ffeval (interp, args, nargout);
+
+        retval.make_storable_values ();
+
+        if (retval.length () == 1 && retval.xelem (0).is_undefined ())
+          retval.clear ();
+
+        output.append (std::move (retval));
+      }
   }
 
   void recover_from_execution_excep ()
