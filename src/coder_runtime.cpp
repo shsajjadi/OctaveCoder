@@ -1273,7 +1273,7 @@ template <int size>
 
   void SetEmpty(Symbol& id);
 
-  bool isargout1 (int nargout, double k);
+  bool isargout1 (int nargout, const coder_value_list& caller_output, double k);
 
   void
   call_narginchk (coder_value_list& output, int nargin, const octave_value_list& arg);
@@ -1288,7 +1288,7 @@ template <int size>
   call_nargout (coder_value_list& output, int nargout, const octave_value_list& arg, int nout);
 
   void
-  call_isargout (coder_value_list& output, int nargout, const octave_value_list& arg, int nout);
+  call_isargout (coder_value_list& output, int nargout, const coder_value_list& caller_output, const octave_value_list& arg, int nout);
 
   void recover_from_execution_excep ();
 
@@ -1669,9 +1669,9 @@ template <int size>
 #define NARGOUT Narg(nargout_, nargout_maker)
 
 #define ISARGOUT_MAKER Symbol isargout_maker(fcn2ov(\
-  [nargout](coder_value_list& output, const octave_value_list& arg, int nout)->void\
+  [nargout, &output](coder_value_list& out, const octave_value_list& arg, int nout)->void\
   {\
-    return call_isargout (output, nargout, arg, nout);\
+    return call_isargout (out, nargout, output, arg, nout);\
   }));
 
 #define ISARGOUT Narg(isargout_, isargout_maker)
@@ -1918,14 +1918,14 @@ namespace coder
   class coder_value_list
   {
    public:
-    coder_value_list (bool multiassign = false):
+    coder_value_list (coder_lvalue * out_args = nullptr):
     m_list (),
-    used_in_multiassign (multiassign)
+    out_args (out_args)
     {
     }
 
-    coder_value_list (octave_idx_type n, bool multiassign = false):
-    used_in_multiassign (multiassign)
+    coder_value_list (octave_idx_type n, coder_lvalue * out_args = nullptr):
+    out_args (out_args)
     {
       m_list = Pool::alloc (n);
     }
@@ -2006,12 +2006,18 @@ namespace coder
 
     bool is_multi_assigned () const
     {
-      return used_in_multiassign;
+      return bool (out_args);
+    }
+
+    coder_lvalue *  output_lvalues () const
+    {
+      return out_args;
     }
 
   private:
     std::list<octave_value_list> m_list;
-    bool used_in_multiassign;
+
+    coder_lvalue * out_args;
   };
 
   class coder_function_base
@@ -4418,7 +4424,7 @@ namespace coder
         n_blackhole += lvalue_list[i].is_black_hole();
       }
 
-    coder_value_list rhs_val1 (true);
+    coder_value_list rhs_val1 (lvalue_list);
 
     rhs->evaluate_n (rhs_val1, n_out , endkey);
 
@@ -5214,12 +5220,30 @@ namespace coder
     *id_val = val;
   }
 
-  bool isargout1 (int nargout, double k)
+  bool isargout1 (int nargout, const coder_value_list& caller_output, double k)
   {
-    if (k != octave::math::round (k) || k <= 0)
+    if (k != octave::math::fix (k) || k <= 0)
       error ("isargout: K must be a positive integer");
 
-    return (k == 1 || k <= nargout) ;
+    if (! (k == 1 || k <= nargout))
+      return false;
+
+    if (! caller_output.is_multi_assigned())
+      return true;
+
+    coder_lvalue * lvalue = caller_output.output_lvalues();
+
+    for(int nel = 0; nel != nargout; ++lvalue)
+      {
+        nel += lvalue->numel ();
+
+        if (nel == k)
+          return ! lvalue->is_black_hole ();
+        else if (nel > k)
+          return true;
+      }
+
+    return false;
   }
 
   void
@@ -5378,9 +5402,8 @@ namespace coder
       }
   }
 
-  //FIXME : always returns true!
   void
-  call_isargout (coder_value_list& output, int nargout, const octave_value_list& arg, int nout)
+  call_isargout (coder_value_list& output, int nargout, const coder_value_list& caller_output, const octave_value_list& arg, int nout)
   {
     auto& result = output;
 
@@ -5400,7 +5423,7 @@ namespace coder
     if (arg(0).is_scalar_type ())
       {
         double k = arg (0).double_value ();
-        retval =  octave_value (isargout1 (nargout, k));
+        retval =  octave_value (isargout1 (nargout, caller_output, k));
       }
     else if (arg (0).isnumeric ())
       {
@@ -5409,7 +5432,7 @@ namespace coder
         boolNDArray r (ka.dims ());
 
         for (octave_idx_type i = 0; i < ka.numel (); i++)
-          r (i) = isargout1 (nargout, ka(i));
+          r (i) = isargout1 (nargout, caller_output, ka(i));
 
         retval = octave_value (r);
       }
