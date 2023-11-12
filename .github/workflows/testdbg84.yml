@@ -1,0 +1,66 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI gdb8.4 
+
+# Controls when the workflow will run
+on:
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  test:
+    # The type of runner that the job will run on
+    runs-on: windows-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+
+      # Runs a single command using the runners shell
+      - name: Download Octave
+        run: Invoke-WebRequest https://ftp.gnu.org/gnu/octave/windows/octave-8.4.0-w64.7z -O octave-8.4.0-w64.7z
+
+      #- name: list files
+      #  run: dir
+      
+      - name: Extract Octave
+        run: 7z x octave-8.4.0-w64.7z
+                 
+      - name: Install coder
+        run: octave-8.4.0-w64\mingw64\bin\octave.bat --eval "pre_install;"
+                
+      - name: copy coder
+        run: copy src\octave2oct.oct octave2oct.oct
+      
+       #name: change dir
+        #run: cd octave-8.4.0-w64\mingw64\bin
+        
+     # - uses: actions/cache@v1
+     #   with:
+     #    path: octave-8.4.0-w64
+     #    key: octave
+         
+
+      
+      - name: write tst
+        run:  Add-Content -Path tst.m -Value 'function tst;plot(1:4);end'
+      - name: compile        
+        run: octave-8.4.0-w64\mingw64\bin\octave.bat --eval  '"octave2oct("""tst""", """mode""", """static""", """verbose""", 1, """cache""", """cache2""", """debug""",1)"'
+      - name: write dbg1
+        run: Add-Content -Path cm.dbg -Value 'set breakpoint pending on'
+      - name: write dbg2
+        run: Add-Content -Path cm.dbg -Value 'break abort'
+      #- name: write dbg3
+      #  run: Add-Content -Path cm.dbg -Value 'run'
+      #- name: write dbg4
+      #  run: Add-Content -Path cm.dbg -Value 'bt'
+      - name: show cmdbg
+        run: type cm.dbg
+      #- name: copy dlls
+      #  run: copy cache2\bin\*.* .
+      - name: test tst
+        run: octave-8.4.0-w64\mingw64\bin\gdb -batch -x cm.dbg -ex run -ex bt --args octave-8.4.0-w64\mingw64\bin\octave-cli --eval '"tst"'
