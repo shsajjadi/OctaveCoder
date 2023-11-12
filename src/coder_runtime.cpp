@@ -441,11 +441,13 @@ template <typename T>
 
   struct string_literal_dq : Expression
   {
-    explicit string_literal_dq(const char *str) :str(str){  }
+    explicit string_literal_dq(const char *str, std::size_t size) :str (str), size (size) {  }
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
 
     const char *str;
+
+    std::size_t size;
   };
 
   using string_literal = string_literal_sq;
@@ -612,7 +614,7 @@ template <typename T>
 
   inline string_literal_dq operator"" _dq( const char *str, std::size_t sz)
   {
-    return string_literal_dq (str);
+    return string_literal_dq (str, sz);
   }
 
   struct Plus : public LightweightExpression
@@ -3226,7 +3228,7 @@ namespace coder
 
     return called;
   }
-  
+
   coder_value
   Index::evaluate ( int nargout, const Endindex& endkey, bool short_circuit)
   {
@@ -3772,7 +3774,11 @@ namespace coder
   coder_value
   string_literal_dq::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
   {
-    return (octave_value(str,'"'));
+    Array<char> arr (dim_vector (1, size));
+
+    std::memcpy (arr.fortran_vec (), str, size);
+
+    return octave_value (arr, '"');
   }
 
   coder_value double_literal::evaluate( int nargout, const Endindex& endkey, bool short_circuit)
