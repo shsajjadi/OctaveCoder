@@ -385,8 +385,11 @@ template <typename T>
 
   struct Index : LightweightExpression
   {
+    Index(Ptr arg, const char *name, const char *type, Ptr_list_list&& arg_list)
+    : base(arg), name (name), idx_type(type), arg_list(arg_list){}
+
     Index(Ptr arg, const char *type, Ptr_list_list&& arg_list)
-    : base(arg),idx_type(type),arg_list(arg_list){}
+    : base(arg), name (nullptr), idx_type(type), arg_list(arg_list){}
 
     coder_value evaluate(int nargout=0, const Endindex& endkey=Endindex(), bool short_circuit=false);
 
@@ -396,6 +399,8 @@ template <typename T>
     lvalue (coder_value_list&);
 
     Ptr base;
+
+    const char *name;
 
     const char *idx_type;
 
@@ -3194,6 +3199,34 @@ namespace coder
     return octave_value (val, false);
   }
 
+  static bool
+  method_dispatch (coder_value_list& retval, const char * name, coder_value_list& args, int nargout)
+  {
+    bool called = false;
+
+    auto& indexed_object = args.back ()(0);
+
+    if (indexed_object.isobject ())
+      {
+        std::string class_name = indexed_object.class_name ();
+
+        octave::symbol_table& symtab = octave::interpreter::the_interpreter () ->get_symbol_table ();
+
+        octave_value meth = symtab.find_method (name, class_name);
+
+        if (meth.is_defined ())
+          {
+            octave::tree_evaluator& ev = octave::interpreter::the_interpreter () -> get_evaluator ();
+
+            retval.append (meth.function_value ()->call (ev, nargout, args.back ()));
+
+            called = true;
+          }
+      }
+
+    return called;
+  }
+  
   coder_value
   Index::evaluate ( int nargout, const Endindex& endkey, bool short_circuit)
   {
@@ -3270,57 +3303,76 @@ namespace coder
                           : endkey;
 
                         first_args.append (convert_to_const_vector( *p_args, endindex));
+
+                         consumed = method_dispatch (retval, this->name, first_args, nargout);
                       }
                     else
                       {
                         first_args.append (coder_value_list{octave_idx_type(0)});
                       }
 
-                    generated_fcn->call (retval, nargout, first_args.back () );
+                    if (! consumed)
+                      {
+                        generated_fcn->call (retval, nargout, first_args.back () );
 
-                    consumed = true;
+                        consumed = true;
+                      }
                   }
                 else if (! val->is_function_handle ())
                   {
                     if (p_args->size() > 0)
                       {
-                          first_args.append (convert_to_const_vector( *p_args, endkey));
+                        first_args.append (convert_to_const_vector( *p_args, endkey));
+
+                        consumed = method_dispatch (retval, this->name, first_args, nargout);
                       }
                     else
                       {
                         first_args.append (coder_value_list {octave_idx_type(0)});
                       }
 
-                    try
+                    if (! consumed)
                       {
-                        octave::tree_evaluator& ev = octave::interpreter::the_interpreter () -> get_evaluator ();
+                        try
+                          {
+                            octave::tree_evaluator& ev = octave::interpreter::the_interpreter () -> get_evaluator ();
 
-                        retval.append (fcn->call (ev, nargout, first_args.back ()));
-                      }
-                    catch (octave::index_exception& e)
-                      {
-                        error ("function indexing error");
-                      }
+                            retval.append (fcn->call (ev, nargout, first_args.back ()));
+                          }
+                        catch (octave::index_exception& e)
+                          {
+                            error ("function indexing error");
+                          }
 
-                    consumed = true;
+                        consumed = true;
+                      }
                   }
 
-                if (consumed)
-                  {
-                    beg++;
-                    p_args++;
+              }
+            else if (p_args->size() > 0 && ! val-> is_defined ())
+              {
+                coder_value_list first_args;
 
-                    if (n > beg)
-                      {
-                        if (retval.back ().length () == 0)
-                          error ("indexing undefined value");
-                        else
-                          base_expr_val = retval(0);
-                      }
+                first_args.append (convert_to_const_vector( *p_args, endkey));
+
+                consumed = method_dispatch (retval, this->name, first_args, nargout);
+              }
+
+            if (consumed)
+              {
+                beg++;
+                p_args++;
+
+                if (n > beg)
+                  {
+                    if (retval.back ().length () == 0)
+                      error ("indexing undefined value");
                     else
-                      {
-                        return;
-                      }
+                      base_expr_val = retval(0);
+                  }
+                else
+                  {
+                    return;
                   }
               }
           }

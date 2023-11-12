@@ -1344,6 +1344,11 @@ namespace coder_compiler
     if (e)
       e->accept (*this);
 
+    if (e && e->is_identifier())
+      {
+        os_src << ", \"" << e->name () << "\"";
+      }
+
     os_src << ", \"" << type_tags << "\", ";
 
     std::list<octave::tree_argument_list *> lst = expr.arg_lists ();
