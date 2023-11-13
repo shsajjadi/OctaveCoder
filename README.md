@@ -6,7 +6,7 @@ Octave Coder is a code generator and build system that, given a function name tr
 
     octave2oct('myfunction');
 
-All versions of GNU Octave starting from 4.4.0 are supported. Coder supports compilation of .m function files and command-line functions. Script files aren't supported. Classdef classes and the functions contained in the package folders are supported through the interpreter so the generated .oct files are just wrappers. Classdef method dispatching "X = setColor(X,'red');" isn't supported and the only supported classdef method call is calling via dot notation "X = X.setColor('red')". Handle to nested function is also supported. 
+All versions of GNU Octave starting from 4.4.0 are supported. Coder supports compilation of .m function files and command-line functions. Script files aren't supported. Classdef classes and the functions contained in the package folders are supported through the interpreter so the generated .oct files are just wrappers. Handle to nested function is also supported. 
 
 The name and symbol resolution is done at translation time so the workspace and scope of a compiled function cannot be changed/queried dynamically. Because of that, if a compiled .oct file calls functions such as "eval", "evalin", "assignin", "who" , "whos", "exist" and "clear" that dynamically change / query the workspace, they are evaluated in the workspace that the generated .oct file is called from. Moreover Adding a path to Octave's path, loading packages and autoload functions and changing the current folder via "cd" should be done before the start of the compilation. Doing so helps compiler to correctly find and resolve symbols.
 
@@ -96,8 +96,8 @@ The build system internally calls the "mkoctfile" command. Additional options as
 
 ### Known issues
 
-- .m files that contain call to functions like 'eval' and 'clear' are not suppoed to work when compiled to .oct file
-- Always call the generated oct files form a .m function file. It prevent runtime errors related to functions that contain mlock and munlock.
+- .m files that contain call to functions like 'eval' and 'clear' are not supposed to work when compiled to .oct file.
+- Always call the generated oct files form a .m function file. It prevents runtime errors related to functions that contain mlock and munlock.
  
 ### TODO
 

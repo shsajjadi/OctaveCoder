@@ -1,3 +1,13 @@
+coder 1.8.4- 2023-11-13
+---------------------
+
+* Major refactoring to support nested functions
+* Support for classdef method dispatch call using the interpreter
+* Support for isargout
+* Making feval faster on calling coder functions
+* Fix segfault when dqstring contains 0
+* Fix segfault when calling function handles
+
 coder 1.8.0- 2023-02-13
 ---------------------
 
