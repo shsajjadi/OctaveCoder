@@ -166,6 +166,8 @@ namespace coder
     octave_idx_type m_nel;
 
     friend class for_loop_rep;
+
+    friend class struct_loop_rep;
   };
 
   template <typename Expression>
@@ -219,6 +221,8 @@ namespace coder
     virtual void evaluate_n(coder_value_list& output,int nargout=1, const Endindex& endkey=Endindex(), bool short_circuit=false) ;
 
     virtual coder_lvalue lvalue(coder_value_list&){return coder_lvalue();}
+
+    virtual Symbol * address (){return nullptr;}
 
     virtual bool is_Symbol() {return false;}
 
@@ -313,6 +317,8 @@ namespace coder
 
     coder_lvalue lvalue(coder_value_list&);
 
+    Symbol * address() {return this;}
+
     void
     call (coder_value_list& output, int nargout, const octave_value_list& args);
 
@@ -364,6 +370,8 @@ namespace coder
       return sym.lvalue(lst);
     }
 
+    Symbol * address () {return &sym;}
+
     bool is_Symbol() {return true;}
 
     octave_base_value * base_value ()
@@ -397,6 +405,8 @@ template <typename T>
 
     coder_lvalue
     lvalue (coder_value_list&);
+
+    Symbol * address () {return base->address ();}
 
     Ptr base;
 
@@ -5587,6 +5597,7 @@ namespace coder
       steps(),
       idx (),
       ult(lhs->lvalue (ult_idx)),
+      address(lhs->address ()),
       blackhole (ult.is_black_hole ()),
       m_fast_loop (fast_loop),
       m_first_loop (true)
@@ -5672,6 +5683,9 @@ namespace coder
       if (blackhole)
         return;
 
+      if (address)
+        ult.m_sym = address->get_reference ();
+
       if (looptype == range_loop)
         {
           auto rhs = rng.elem (i);
@@ -5693,10 +5707,14 @@ namespace coder
               return;
             }
 
-          if (ult_idx.empty () && (m_fast_loop || coder_is_scalar(static_cast<octave_base_value *>(m_sym))))
+          if (ult_idx.empty ())
             {
-              if (static_cast<octave_base_value *>(m_sym)->*get(octave_base_value_count ()) == 1)
-                static_cast<octave_base_scalar<double> *>(m_sym)->scalar_ref() = rhs;
+              if (m_fast_loop
+                  && static_cast<octave_base_value *>(m_sym)->*get(octave_base_value_count ()) == 1
+                  && coder_is_scalar(static_cast<octave_base_value *>(m_sym)))
+                {
+                  static_cast<octave_base_scalar<double> *>(m_sym)->scalar_ref() = rhs;
+                }
               else
                 {
                   octave_value val {static_cast<octave_base_value *>(m_sym)};
@@ -5745,6 +5763,8 @@ namespace coder
 
     coder_lvalue ult;
 
+    Symbol * address;
+
     coder_value_list ult_idx;
 
     const bool blackhole;
@@ -5768,6 +5788,10 @@ namespace coder
       val_ref = (v)->lvalue (idxs[0]);
 
       key_ref = (k)->lvalue (idxs[1]);
+
+      addressv = v->address ();
+
+      addressk = k->address ();
 
       keys = rhs.val->map_keys ();
 
@@ -5794,6 +5818,12 @@ namespace coder
     void set_loop_val (octave_idx_type i)
     {
       const std::string &key = keys.xelem(i);
+
+      if (addressv)
+        val_ref.m_sym = addressv->get_reference ();
+
+      if (addressk)
+        key_ref.m_sym = addressk->get_reference ();
 
       if (is_scalar_struct)
         {
@@ -5832,6 +5862,10 @@ namespace coder
     coder_lvalue val_ref;
 
     coder_lvalue key_ref;
+
+    Symbol * addressv;
+
+    Symbol * addressk;
 
     coder_value rhs;
 
