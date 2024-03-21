@@ -3662,7 +3662,7 @@ namespace coder
             {
               auto tidx = make_value_list (*p_args, endindex);
 
-              if (tmp.is_undefined ())
+              if (tmp.is_undefined () || tmp.is_function ())
                 {
                   if (tidx.back ().has_magic_colon ())
                     err_invalid_inquiry_subscript ();
@@ -3699,7 +3699,7 @@ namespace coder
                 {
                   octave_value_list& pidx = Pool::bitidx ().back () ? idx.back () : tmpidx.back ();
 
-                  if (tmp.is_undefined ())
+                  if (tmp.is_undefined () || tmp.is_function ())
                     {
                       if (pidx.has_magic_colon ())
                         err_invalid_inquiry_subscript ();
@@ -3721,7 +3721,7 @@ namespace coder
                 }
               else
                 {
-                  if (tmp.is_undefined () || autoconv)
+                  if (tmp.is_undefined () || tmp.is_function () || autoconv)
                     {
                       tmpi = i+1;
 
