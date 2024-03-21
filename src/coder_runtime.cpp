@@ -1789,6 +1789,8 @@ namespace coder
 #else
   static void grab (void * value)
   {
+    octave_base_value * val = static_cast<octave_base_value *> (value);
+
     val->grab ();
   }
 
