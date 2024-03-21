@@ -34,7 +34,7 @@ jobs:
         run: copy src\octave2oct.oct octave2oct.oct
 
       - name: compile test
-        run: octave-8.4.0-w64\mingw64\bin\octave.bat --eval '"octave2oct("""randomplot""", """mode""", """static""", """verbose""", 1, """cache""", """cache2""")"'
+        run: octave-8.4.0-w64\mingw64\bin\octave.bat --eval '"octave2oct("""randomplot""", """mode""", """static""", """verbose""", 1, """cache""", """cache2""", """debug""", 1)"'
 
       - name: write runrp
         run: Add-Content -Path runrp.m -Value 'function runrp;randomplot(3, 4);end'
