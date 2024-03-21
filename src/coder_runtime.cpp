@@ -320,7 +320,7 @@ namespace coder
     Symbol * address() {return this;}
 
     void
-    call (coder_value_list& output, int nargout, const octave_value_list& args);
+    call (coder_value_list& output, int nargout, const octave_value_list& args) const;
 
     bool
     is_defined () const;
@@ -3049,7 +3049,7 @@ namespace coder
   }
 
   void
-  Symbol::call (coder_value_list& output, int nargout, const octave_value_list& args)
+  Symbol::call (coder_value_list& output, int nargout, const octave_value_list& args) const
   {
     coder_function_base* fcn = dynamic_cast<coder_function_base *> (static_cast<octave_base_value *>(get_value()));
 
