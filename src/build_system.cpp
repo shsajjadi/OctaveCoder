@@ -355,6 +355,16 @@ namespace coder_compiler
 
             continue;
           }
+        else if (! (start_node->type == file_type::m || start_node->type == file_type::cmdline))
+          {
+            warning ("coder: cannot create oct file from \"%s\" that isn't a m function or commandline function", fname.c_str ());
+
+            *out_name_it++;
+
+            *out_dir_it++;
+
+            continue;
+          }
 
         if (mode == bm_dynamic)
           {

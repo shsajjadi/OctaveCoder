@@ -1303,6 +1303,9 @@ template <int size>
   void
   call_feval (coder_value_list& output, const octave_value_list& args, int nargout);
 
+  void
+  call_nop (coder_value_list& output, const octave_value_list& args, int nargout);
+
   void recover_from_execution_excep ();
 
   void recover_from_execution_and_interrupt_excep ();
@@ -1764,6 +1767,11 @@ namespace coder
 
   GETMEMBER(octave_base_value_count, octave_base_value, octave::refcount<octave_idx_type>, count)
 
+#if OCTAVE_MAJOR_VERSION >= 6
+  GETMEMBER(base_fcn_handle_name, octave::base_fcn_handle, std::string, m_name)
+  GETMEMBER(octave_fcn_handle_rep, octave_fcn_handle, std::shared_ptr<octave::base_fcn_handle>, m_rep)
+#endif
+
 #if OCTAVE_MAJOR_VERSION >= 7
   static void grab (void * value)
   {
@@ -1784,6 +1792,8 @@ namespace coder
 #else
   static void grab (void * value)
   {
+    octave_base_value * val = static_cast<octave_base_value *> (value);
+
     val->grab ();
   }
 
@@ -3228,11 +3238,11 @@ namespace coder
   }
 
   static bool
-  method_dispatch (coder_value_list& retval, const char * name, coder_value_list& args, int nargout)
+  method_dispatch (coder_value_list& retval, const char * name, const octave_value_list& args, int nargout)
   {
     bool called = false;
 
-    auto& indexed_object = args.back ()(0);
+    auto& indexed_object = args(0);
 
     if (indexed_object.isobject ())
       {
@@ -3246,7 +3256,7 @@ namespace coder
           {
             octave::tree_evaluator& ev = octave::interpreter::the_interpreter () -> get_evaluator ();
 
-            retval.append (meth.function_value ()->call (ev, nargout, args.back ()));
+            retval.append (meth.function_value ()->call (ev, nargout, args));
 
             called = true;
           }
@@ -3332,7 +3342,7 @@ namespace coder
 
                         first_args.append (convert_to_const_vector( *p_args, endindex));
 
-                         consumed = method_dispatch (retval, this->name, first_args, nargout);
+                         consumed = method_dispatch (retval, this->name, first_args.back (), nargout);
                       }
                     else
                       {
@@ -3352,7 +3362,7 @@ namespace coder
                       {
                         first_args.append (convert_to_const_vector( *p_args, endkey));
 
-                        consumed = method_dispatch (retval, this->name, first_args, nargout);
+                        consumed = method_dispatch (retval, this->name, first_args.back (), nargout);
                       }
                     else
                       {
@@ -3383,7 +3393,7 @@ namespace coder
 
                 first_args.append (convert_to_const_vector( *p_args, endkey));
 
-                consumed = method_dispatch (retval, this->name, first_args, nargout);
+                consumed = method_dispatch (retval, this->name, first_args.back (), nargout);
               }
 
             if (consumed)
@@ -3662,7 +3672,7 @@ namespace coder
             {
               auto tidx = make_value_list (*p_args, endindex);
 
-              if (tmp.is_undefined ())
+              if (tmp.is_undefined () || tmp.is_function ())
                 {
                   if (tidx.back ().has_magic_colon ())
                     err_invalid_inquiry_subscript ();
@@ -3699,7 +3709,7 @@ namespace coder
                 {
                   octave_value_list& pidx = Pool::bitidx ().back () ? idx.back () : tmpidx.back ();
 
-                  if (tmp.is_undefined ())
+                  if (tmp.is_undefined () || tmp.is_function ())
                     {
                       if (pidx.has_magic_colon ())
                         err_invalid_inquiry_subscript ();
@@ -3721,7 +3731,7 @@ namespace coder
                 }
               else
                 {
-                  if (tmp.is_undefined () || autoconv)
+                  if (tmp.is_undefined () || tmp.is_function () || autoconv)
                     {
                       tmpi = i+1;
 
@@ -4703,11 +4713,28 @@ namespace coder
   {
     if (fmaker)
       {
-#if OCTAVE_MAJOR_VERSION >= 6
-        return coder_value(new octave_fcn_handle (octave_value(static_cast<octave_base_value *>(fmaker ().get_value()), true)));
-#else
-        return coder_value(new octave_fcn_handle (octave_value(static_cast<octave_base_value *>(fmaker ().get_value()), true), name));
+        auto * h = new octave_fcn_handle (octave_value (fcn2ov (
+              [=](coder_value_list& output, const octave_value_list& args, int nargout)->void
+              {
+                bool is_called = method_dispatch (output, name, args, nargout);
+
+                if (is_called)
+                  return;
+
+                fmaker ().call (output, nargout, args);
+              }))
+#if OCTAVE_MAJOR_VERSION < 6
+              , name
 #endif
+        );
+#if OCTAVE_MAJOR_VERSION >= 6
+        std::shared_ptr<octave::base_fcn_handle>& rep = h->*get(octave_fcn_handle_rep ());
+
+        std::string & fname = rep.get()->*get(base_fcn_handle_name ());
+
+        fname = name;
+#endif
+        return coder_value(h);
       }
 
     auto rhs = op_rhs.get ();
@@ -4717,7 +4744,15 @@ namespace coder
     if (bv)
       {
 #if OCTAVE_MAJOR_VERSION >= 6
-        return coder_value(new octave_fcn_handle (octave_value(bv, true)));
+        auto * h = new octave_fcn_handle (octave_value(bv, true));
+
+        std::shared_ptr<octave::base_fcn_handle>& rep = h->*get(octave_fcn_handle_rep ());
+
+        std::string & fname = rep.get()->*get(base_fcn_handle_name ());
+
+        fname = name;
+
+        return coder_value(h);
 #else
         return coder_value(new octave_fcn_handle (octave_value(bv, true), name));
 #endif
@@ -5499,6 +5534,11 @@ namespace coder
 
         output.append (std::move (retval));
       }
+  }
+
+  void call_nop (coder_value_list& output, const octave_value_list& args, int nargout)
+  {
+    make_return_val(output);
   }
 
   void recover_from_execution_excep ()

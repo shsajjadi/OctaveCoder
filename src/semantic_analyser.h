@@ -422,7 +422,7 @@ namespace coder_compiler
 
     void find_resolvabale_names_in_octave_path ();
 
-     void find_resolvabale_names (std::shared_ptr<std::set<std::string>> resolvable_names, const std::string& d);
+     void find_resolvabale_names (std::shared_ptr<std::set<std::string>> resolvable_names, const std::string& d, bool is_private = false);
 
     struct compare_file_ptr
     {

@@ -71,64 +71,43 @@ namespace coder_compiler
 
     return traverserd_scopes;
   }
-
-  std::string
-  find_meta_path(const octave_value& meta, const std::string& nm)
+  static std::string
+  find_meta_path(const octave_value& meta, const std::string& nm, const std::string lookup_path, const std::string d, bool is_private)
   {
     std::string result;
 
-    octave::load_path& lpath = octave::interpreter::the_interpreter ()->get_load_path ();
+    octave::sys::dir_entry dir (d);
 
-    for (auto d: lpath.dir_list())
+    if (dir)
       {
-        octave::sys::dir_entry dir (d);
+        string_vector flist = dir.read ();
 
-        if (dir)
+        octave_idx_type len = flist.numel ();
+
+        std::string private_dir;
+
+        for (octave_idx_type i = 0; i < len; i++)
           {
-            string_vector flist = dir.read ();
+            std::string fname = flist[i];
 
-            octave_idx_type len = flist.numel ();
+            std::string full_name = octave::sys::file_ops::concat (d, fname);
 
-            for (octave_idx_type i = 0; i < len; i++)
+            octave::sys::file_stat fs (full_name);
+
+            if (fs)
               {
-                std::string fname = flist[i];
-
-                std::string full_name = octave::sys::file_ops::concat (d, fname);
-
-                octave::sys::file_stat fs (full_name);
-
-                if (fs)
+                if (fs.is_dir () && fname == "private" && d == lookup_path)
                   {
-                    if (meta.is_package())
+                    private_dir = full_name;
+
+                    continue;
+                  }
+
+                if (meta.is_package())
+                  {
+                    if (fs.is_dir ())
                       {
-                        if (fs.is_dir ())
-                          {
-                            if (fname[0] == '+' && fname.substr (1) == nm)
-                            {
-                              octave::interpreter& interp = *octave::interpreter::the_interpreter ();
-
-                              auto& cdm = interp.get_cdef_manager ();
-
-                              auto cur_dir = ovl(octave::sys::env::get_current_directory ());
-
-                              change_directory(interp, ovl(octave_value(d)));
-
-                              auto pack = cdm.find_package (nm, false, true);
-
-                              change_directory(interp, cur_dir);
-
-                              if (pack.ok ())
-                                return d;
-                            }
-                          }
-                      }
-                    else // if it is a class
-                      {
-                        if (
-                        (fs.is_dir () && (fname[0] == '@' && fname.substr (1) == nm))
-                        ||
-                        (!fs.is_dir () && fname == nm + ".m")
-                        )
+                        if (fname[0] == '+' && fname.substr (1) == nm)
                           {
                             octave::interpreter& interp = *octave::interpreter::the_interpreter ();
 
@@ -138,24 +117,71 @@ namespace coder_compiler
 
                             change_directory(interp, ovl(octave_value(d)));
 
-                            auto klass = cdm.find_class (nm, false, true);
+                            auto pack = cdm.find_package (nm, false, true);
 
                             change_directory(interp, cur_dir);
 
-                            if (klass.ok () )
+                            if (pack.ok ())
                               return d;
                           }
                       }
                   }
+                else // if it is a class
+                  {
+                    if (
+                    (fs.is_dir () && (fname[0] == '@' && fname.substr (1) == nm))
+                    ||
+                    (!fs.is_dir () && fname == nm + ".m")
+                    )
+                      {
+                        octave::interpreter& interp = *octave::interpreter::the_interpreter ();
+
+                        auto& cdm = interp.get_cdef_manager ();
+
+                        auto cur_dir = ovl(octave::sys::env::get_current_directory ());
+
+                        change_directory(interp, ovl(octave_value(d)));
+
+                        auto klass = cdm.find_class (nm, false, true);
+
+                        change_directory(interp, cur_dir);
+
+                        if (klass.ok () )
+                          return d;
+                      }
+                  }
               }
+          }
+
+        if (! is_private && ! private_dir.empty ())
+          {
+            return find_meta_path (meta, nm, lookup_path, private_dir, true);
           }
       }
 
     return result;
   }
 
+  std::string
+  find_meta_path(const octave_value& meta, const std::string& nm, const std::string& lookup_path)
+  {
+    std::string result;
+
+    octave::load_path& lpath = octave::interpreter::the_interpreter ()->get_load_path ();
+
+    for (auto d: lpath.dir_list())
+      {
+        result = find_meta_path (meta, nm, lookup_path, d, false);
+
+        if (! result.empty ())
+          break;
+      }
+
+    return result;
+  }
+
   std::tuple<file_type ,std::string, std::string>
-  find_file_type_name_and_path(const octave_value& val, const std::string& symbol_name)
+  find_file_type_name_and_path(const octave_value& val, const std::string& symbol_name, const std::string& lookup_path)
   {
     std::string file_name,dir_name;
 
@@ -259,7 +285,7 @@ namespace coder_compiler
             type = file_type::classdef;
           }
 
-        dir_name = octave::sys::env::make_absolute(octave::sys::file_ops::tilde_expand(find_meta_path(val,symbol_name)));
+        dir_name = octave::sys::env::make_absolute(octave::sys::file_ops::tilde_expand(find_meta_path(val,symbol_name, lookup_path)));
 
         file_name = symbol_name;
       }
