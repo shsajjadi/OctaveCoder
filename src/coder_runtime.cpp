@@ -3228,11 +3228,11 @@ namespace coder
   }
 
   static bool
-  method_dispatch (coder_value_list& retval, const char * name, coder_value_list& args, int nargout)
+  method_dispatch (coder_value_list& retval, const char * name, const octave_value_list& args, int nargout)
   {
     bool called = false;
 
-    auto& indexed_object = args.back ()(0);
+    auto& indexed_object = args(0);
 
     if (indexed_object.isobject ())
       {
@@ -3246,7 +3246,7 @@ namespace coder
           {
             octave::tree_evaluator& ev = octave::interpreter::the_interpreter () -> get_evaluator ();
 
-            retval.append (meth.function_value ()->call (ev, nargout, args.back ()));
+            retval.append (meth.function_value ()->call (ev, nargout, args));
 
             called = true;
           }
@@ -3332,7 +3332,7 @@ namespace coder
 
                         first_args.append (convert_to_const_vector( *p_args, endindex));
 
-                         consumed = method_dispatch (retval, this->name, first_args, nargout);
+                         consumed = method_dispatch (retval, this->name, first_args.back (), nargout);
                       }
                     else
                       {
@@ -3352,7 +3352,7 @@ namespace coder
                       {
                         first_args.append (convert_to_const_vector( *p_args, endkey));
 
-                        consumed = method_dispatch (retval, this->name, first_args, nargout);
+                        consumed = method_dispatch (retval, this->name, first_args.back (), nargout);
                       }
                     else
                       {
@@ -3383,7 +3383,7 @@ namespace coder
 
                 first_args.append (convert_to_const_vector( *p_args, endkey));
 
-                consumed = method_dispatch (retval, this->name, first_args, nargout);
+                consumed = method_dispatch (retval, this->name, first_args.back (), nargout);
               }
 
             if (consumed)
@@ -4703,11 +4703,22 @@ namespace coder
   {
     if (fmaker)
       {
-#if OCTAVE_MAJOR_VERSION >= 6
-        return coder_value(new octave_fcn_handle (octave_value(static_cast<octave_base_value *>(fmaker ().get_value()), true)));
-#else
-        return coder_value(new octave_fcn_handle (octave_value(static_cast<octave_base_value *>(fmaker ().get_value()), true), name));
+        auto * h = new octave_fcn_handle (octave_value (fcn2ov (
+              [=](coder_value_list& output, const octave_value_list& args, int nargout)->void
+              {
+                bool is_called = method_dispatch (output, name, args, nargout);
+
+                if (is_called)
+                  return;
+
+                fmaker ().call (output, nargout, args);
+              }))
+#if OCTAVE_MAJOR_VERSION < 6
+              , name
 #endif
+        );
+
+        return coder_value(h);
       }
 
     auto rhs = op_rhs.get ();
