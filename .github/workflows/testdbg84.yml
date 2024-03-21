@@ -22,7 +22,7 @@ jobs:
 
       # Runs a single command using the runners shell
       - name: Download Octave
-        run: Invoke-WebRequest https://ftp.gnu.org/gnu/octave/windows/octave-8.4.0-w64.7z -O octave-8.4.0-w64.7z
+        run: Invoke-WebRequest https://ftp.gnu.org/gnu/octave/windows/octave-8.4.0-w64.7z -Outfile octave-8.4.0-w64.7z
 
       #- name: list files
       #  run: dir
