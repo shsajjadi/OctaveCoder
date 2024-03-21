@@ -68,8 +68,8 @@ namespace coder_compiler
   };
 
   std::string
-  find_meta_path(const octave_value& meta, const std::string& nm);
+  find_meta_path(const octave_value& meta, const std::string& nm, const std::string& lookup_path);
 
   std::tuple<file_type ,std::string, std::string>
-  find_file_type_name_and_path(const octave_value& val, const std::string& symbol_name);
+  find_file_type_name_and_path(const octave_value& val, const std::string& symbol_name, const std::string& lookup_path);
 }

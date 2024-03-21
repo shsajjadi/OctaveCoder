@@ -861,16 +861,14 @@ namespace coder_compiler
       {
         file_directory_it = &directory_table[current_file()->path];
 
-        auto p = path_map[current_file()->path];
+        auto& p = path_map[current_file()->path];
 
-        if (p)
-          current_path_map = p;
-        else
+        if (! p)
           {
-            path_map[current_file()->path] = std::shared_ptr<std::set<std::string>> {new std::set<std::string> {}};
-
-            current_path_map = path_map[current_file()->path];
+            p = std::shared_ptr<std::set<std::string>> {new std::set<std::string> {}};
           }
+
+        current_path_map = p;
 
         local_functions.clear();
 
@@ -1068,7 +1066,9 @@ namespace coder_compiler
 
     file_type type = file_type::unknown;
 
-    std::tie( type, name, path) = find_file_type_name_and_path(val,sym_name);
+    const std::string& this_file_path = this_file ? this_file->path : std::string ("");
+
+    std::tie( type, name, path) = find_file_type_name_and_path(val, sym_name, this_file_path);
 
     coder_file_ptr retval;
 
@@ -2066,7 +2066,7 @@ namespace coder_compiler
         resolvable_path_names->insert (fcn);
       }
   }
-  void semantic_analyser::find_resolvabale_names (std::shared_ptr<std::set<std::string>> resolvable_names, const std::string& d)
+  void semantic_analyser::find_resolvabale_names (std::shared_ptr<std::set<std::string>> resolvable_names, const std::string& d, bool is_private)
   {
     octave::sys::dir_entry dir (d);
 
@@ -2082,7 +2082,7 @@ namespace coder_compiler
           {
             std::string n = flist[i];
 
-            if (n == "private")
+            if (! is_private && n == "private")
               {
                 has_private_subdir = true;
                 continue;
@@ -2098,15 +2098,20 @@ namespace coder_compiler
 
         if (has_private_subdir)
           {
-            auto& pv_set = path_map[d];
-
-            pv_set = std::shared_ptr<std::set<std::string>> {new std::set<std::string> {}};
-
             std::string pv_dir = octave::sys::file_ops::concat (d, "private");
 
-            path_map[pv_dir] = pv_set;
+            octave::sys::file_stat fs (pv_dir);
 
-            find_resolvabale_names (pv_set, pv_dir);
+            if (fs && fs.is_dir ())
+              {
+                auto& pv_set = path_map[d];
+
+                pv_set = std::shared_ptr<std::set<std::string>> {new std::set<std::string> {}};
+
+                path_map[pv_dir] = pv_set;
+
+                find_resolvabale_names (pv_set, pv_dir, true);
+              }
           }
       }
   }
