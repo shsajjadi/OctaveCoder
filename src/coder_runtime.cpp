@@ -1303,6 +1303,9 @@ template <int size>
   void
   call_feval (coder_value_list& output, const octave_value_list& args, int nargout);
 
+  void
+  call_nop (coder_value_list& output, const octave_value_list& args, int nargout);
+
   void recover_from_execution_excep ();
 
   void recover_from_execution_and_interrupt_excep ();
@@ -5531,6 +5534,11 @@ namespace coder
 
         output.append (std::move (retval));
       }
+  }
+
+  void call_nop (coder_value_list& output, const octave_value_list& args, int nargout)
+  {
+    make_return_val(output);
   }
 
   void recover_from_execution_excep ()

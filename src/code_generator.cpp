@@ -3380,6 +3380,22 @@ namespace coder_compiler
               continue;
           }
 
+        if (bif(i) == "mlock")
+          {
+            os_src
+              << "const Symbol& mlock_make() { static const Symbol mlock_ (fcn2ov(call_nop)); return mlock_;}\n";
+
+              continue;
+          }
+
+        if (bif(i) == "munlock")
+          {
+            os_src
+              << "const Symbol& munlock_make() { static const Symbol munlock_ (fcn2ov(call_nop)); return munlock_;}\n";
+
+              continue;
+          }
+
         if (! (bif(i).size() > 5 && bif(i).substr(0,5) == "meta."))
           {
             os_src << "const Symbol& ";
