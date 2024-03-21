@@ -1964,10 +1964,21 @@ namespace coder_compiler
   {
     octave::tree_expression *op = expr.operand ();
 
-    auto do_post = [&](const std::string& fcn)
+    auto do_post = [&](const std::string& fcn, octave_value::unary_op parent_op)
     {
       os_src << fcn <<" (" ;
+
+      bool same_type =  op->is_unary_expression () &&
+          parent_op == static_cast<octave::tree_unary_expression*>(op)->op_type ();
+
+      if (same_type)
+        os_src << "Ptr (";
+
         op->accept (*this);
+
+      if (same_type)
+        os_src << ")";
+
       os_src << ")";
     };
 
@@ -1978,16 +1989,16 @@ namespace coder_compiler
         switch (etype)
         {
         case octave_value::op_transpose:
-          do_post("Transpose");
+          do_post("Transpose", octave_value::op_transpose);
           break;
         case octave_value::op_hermitian:
-          do_post("Ctranspose");
+          do_post("Ctranspose", octave_value::op_hermitian);
           break;
         case octave_value::op_incr:
-          do_post("Postinc");
+          do_post("Postinc", octave_value::op_incr);
           break;
         case octave_value::op_decr:
-          do_post("Postdec");
+          do_post("Postdec", octave_value::op_decr);
           break;
         default:
           break;
@@ -2000,9 +2011,21 @@ namespace coder_compiler
   {
     octave::tree_expression *op = expr.operand ();
 
-    auto do_pre = [&](const std::string& fcn) {
+    auto do_pre = [&](const std::string& fcn, octave_value::unary_op parent_op)
+    {
       os_src << fcn <<" (" ;
+
+      bool same_type =  op->is_unary_expression () &&
+          parent_op == static_cast<octave::tree_unary_expression*>(op)->op_type ();
+
+      if (same_type)
+        os_src << "Ptr (";
+
         op->accept (*this);
+
+      if (same_type)
+        os_src << ")";
+
       os_src << ")";
     };
 
@@ -2012,19 +2035,19 @@ namespace coder_compiler
         switch (etype)
           {
           case octave_value::op_not:
-            do_pre("Not");
+            do_pre("Not", octave_value::op_not);
             break;
           case octave_value::op_uplus:
-            do_pre("Uplus");
+            do_pre("Uplus", octave_value::op_uplus);
             break;
           case octave_value::op_uminus:
-            do_pre("Uminus");
+            do_pre("Uminus", octave_value::op_uminus);
             break;
           case octave_value::op_incr:
-            do_pre("Preinc");
+            do_pre("Preinc", octave_value::op_incr);
             break;
           case octave_value::op_decr:
-            do_pre("Predec");
+            do_pre("Predec", octave_value::op_decr);
             break;
           default:
             break;
