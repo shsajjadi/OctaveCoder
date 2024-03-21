@@ -1764,6 +1764,11 @@ namespace coder
 
   GETMEMBER(octave_base_value_count, octave_base_value, octave::refcount<octave_idx_type>, count)
 
+#if OCTAVE_MAJOR_VERSION >= 6
+  GETMEMBER(base_fcn_handle_name, octave::base_fcn_handle, std::string, m_name)
+  GETMEMBER(octave_fcn_handle_rep, octave_fcn_handle, std::shared_ptr<octave::base_fcn_handle>, m_rep)
+#endif
+
 #if OCTAVE_MAJOR_VERSION >= 7
   static void grab (void * value)
   {
@@ -4717,7 +4722,13 @@ namespace coder
               , name
 #endif
         );
+#if OCTAVE_MAJOR_VERSION >= 6
+        std::shared_ptr<octave::base_fcn_handle>& rep = h->*get(octave_fcn_handle_rep ());
 
+        std::string & fname = rep.get()->*get(base_fcn_handle_name ());
+
+        fname = name;
+#endif
         return coder_value(h);
       }
 
@@ -4728,7 +4739,15 @@ namespace coder
     if (bv)
       {
 #if OCTAVE_MAJOR_VERSION >= 6
-        return coder_value(new octave_fcn_handle (octave_value(bv, true)));
+        auto * h = new octave_fcn_handle (octave_value(bv, true));
+
+        std::shared_ptr<octave::base_fcn_handle>& rep = h->*get(octave_fcn_handle_rep ());
+
+        std::string & fname = rep.get()->*get(base_fcn_handle_name ());
+
+        fname = name;
+
+        return coder_value(h);
 #else
         return coder_value(new octave_fcn_handle (octave_value(bv, true), name));
 #endif
