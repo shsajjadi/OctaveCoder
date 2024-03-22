@@ -1,12 +1,12 @@
 # Octave Coder
 
 Octave Coder is a code generator and build system that, given a function name translates the function and all of its dependencies to C++ and builds a .oct shared module.
-  
+
 ### Simple usage:
 
     octave2oct('myfunction');
 
-All versions of GNU Octave starting from 4.4.0 are supported. Coder supports compilation of .m function files and command-line functions. Script files aren't supported. Classdef classes and the functions contained in the package folders are supported through the interpreter so the generated .oct files are just wrappers. Currently classdef method dispatch is only based on the first argument and class precedence rules are ignored. If the first argument of a function call is a classdef object and the class of the object has a method with the same name as the function the method is called. Otherwise the first function found on the path is called. Handle to nested function is also supported. 
+All versions of GNU Octave starting from 4.4.0 are supported. Coder supports compilation of .m function files and command-line functions. Script files aren't supported. Classdef classes and the functions contained in the package folders are supported through the interpreter so the generated .oct files are just wrappers. Currently classdef method dispatch is only based on the first argument and class precedence rules are ignored. If the first argument of a function call is a classdef object and the class of the object has a method with the same name as the function the method is called. Otherwise the first function found on the path is called. Handle to nested function is also supported.
 
 The name and symbol resolution is done at translation time so the workspace and scope of a compiled function cannot be changed/queried dynamically. Because of that, if a compiled .oct file calls functions such as "eval", "evalin", "assignin", "who" , "whos", "exist" and "clear" that dynamically change / query the workspace, they are evaluated in the workspace that the generated .oct file is called from. Moreover Adding a path to Octave's path, loading packages and autoload functions and changing the current folder via "cd" should be done before the start of the compilation. Doing so helps compiler to correctly find and resolve symbols.
 
@@ -18,7 +18,7 @@ Coder's build system supports three modes of building: single, static and dynami
 
 The default build mode is the "single" mode. However sometimes because of the large number of dependencies the generated source in "single" mode may contain thousands lines of code that increases the compilation time. In the cases that the compiler is frequently used it is preferable to use "dynamic" and or "static" modes because all of the generated intermediate files are placed in a cache to be used in the later compilation tasks. Moreover there are cases that a user compiles a file and after that they want to modify the original .m file or they want to shadow a function with a new function that has the same name. The build system can handle such changes. In each compilation task all dependencies of the currently compiled .oct file are upgraded and cached but the dependency of the already compiled .oct files in the "static" mode aren't upgraded so they should be recompiled. But in the "dynamic" mode there is an option to upgrade the dependency of the already compiled .oct files.
 
-There is also a difference in handling of `global` and `persistent` variables. `global` and `persistent` variables are shared between .oct files that are generated in the "dynamic" mode while in the "single" and "static" mode each .oct file contains all of its dependencies including the global and persistent variables and cannot access the global and persistent variables related to other .oct files. 
+There is also a difference in handling of `global` and `persistent` variables. `global` and `persistent` variables are shared between .oct files that are generated in the "dynamic" mode while in the "single" and "static" mode each .oct file contains all of its dependencies including the global and persistent variables and cannot access the global and persistent variables related to other .oct files.
 
 ### Development style
 Previously new branches were created per each Octave release but currently there is a main development line that works on all Octave official releases starting from Octave 4.4.0 . When a new Octave version say 6.1 is released it brings two types of features, refactoring or fixes. The first type is mostly related to evaluation of expressions. Those fixes when are also fixed in Coder results in the improvement of Coder for previous Octave versions. So the (correct) result of an expression in the new Coder release that is installed on Octave 5.2 may be different than the erroneous result of the same expression when evaluated on the interpreter of Octave 5.2. The second types of features and fixes cannot be applied to previous versions so #if macro is used to conditionally include those features. They will be specific to the new Octave version and possibly the later Octave releases.
@@ -39,7 +39,7 @@ Coder is released under GNU GPL v3.0. The generated sources are treated as data 
     octave2oct (NAME)
     octave2oct (____, OptionName, OptionValue)
 
-Compile NAME to .oct file. 
+Compile NAME to .oct file.
 
 NAME
 
@@ -70,7 +70,7 @@ In the "static" each .m file is translated to a separate .cpp file. The .cpp fil
 In the "dynamic" mode each .m file is translated to a separate .cpp file. The .cpp files are compiled to separate object modules. Each object file is linked as a separate shared library (.dll/.so/.dylib) and the final .oct file is linked against those shared libraries.
 
 
-- 'cache'   
+- 'cache'
 
 When 'static' or 'dynamic' are used as the build mode, a 'cache' directory name should be provided. It can be used in the subsequent compilation tasks to speed up the compilation time. Five sub-directories are created in the cache : include, src, lib, bin and tmp. If the compilation is done in 'dynamic' mode the 'bin' sub-directory should be added to the system's 'PATH' ( Windows) or 'LD_LIBRARY_PATH'  ( Linux )  or 'DYLD_LIBRARY_PATH' ( Mac OS ) environment variable before the startup of Octave, otherwise a restart is required. The bin sub-directory contains the required shared libraries that are used by the generated .oct file.
 
@@ -90,15 +90,15 @@ By default the debug symbols aren't preserved. Also the linked libraries are str
 
 Prints process of compilation.
 
-- 'CompilerOptions' 
+- 'CompilerOptions'
 
 The build system internally calls the "mkoctfile" command. Additional options as a character string can be set by 'CompilerOptions' to be provided to the compiler through mkoctfile.
 
 ### Known issues
 
 - .m files that contain call to functions like 'eval' and 'clear' are not supposed to work when compiled to .oct file.
-- Always call the generated oct files form a .m function file. It prevents runtime errors related to functions that contain mlock and munlock.
- 
+- The functions "mlock" and "munlock" are disabled to prevent runtime errors. Those function aren't useful when are called from within .oct file.
+
 ### TODO
 
 - Shared memory parallelism using parfor
