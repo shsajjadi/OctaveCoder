@@ -3337,24 +3337,32 @@ namespace coder_compiler
     auto n = bif.numel();
 
     static const std::map<std::string,std::string> aliases ({
-      {"J"           ,"I"},
-      {"__keywords__","iskeyword"},
-      {"chdir"       , "cd"},
-      {"dbnext"      , "dbstep"},
-      {"exit"        , "quit"},
-      {"gammaln"     , "lgamma"},
-      {"isbool"      , "islogical"},
-      {"inf"         , "Inf"},
-      {"nan"         , "NaN"},
-      {"i"           , "I"},
-      {"j"           , "I"},
-      {"ifelse"      , "merge"},
-      {"alias"       , "name"},
-      {"inverse"     , "inv"},
-      {"lower"       , "tolower"},
-      {"upper"       , "toupper"},
-      {"home"        , "clc"},
-      {"putenv"      , "setenv"}
+      {"J"                 ,"I"},
+      {"__keywords__"      ,"iskeyword"},
+      {"chdir"             , "cd"},
+      {"dbnext"            , "dbstep"},
+      {"exit"              , "quit"},
+      {"gammaln"           , "lgamma"},
+      {"isbool"            , "islogical"},
+      {"inf"               , "Inf"},
+      {"nan"               , "NaN"},
+      {"i"                 , "I"},
+      {"j"                 , "I"},
+      {"ifelse"            , "merge"},
+      {"alias"             , "name"},
+      {"inverse"           , "inv"},
+      {"home"              , "clc"},
+      {"putenv"            , "setenv"},
+#if OCTAVE_MAJOR_VERSION < 9
+      {"lower"             , "tolower"},
+      {"upper"             , "toupper"}
+#else
+      {"tolower"           , "lower"},
+      {"toupper"           , "upper"},
+      {"height"            , "rows"},
+      {"width"             , "columns"},
+      {"__mfile_encoding__", "mfile_encoding"},
+#endif
     });
 
     os_src
