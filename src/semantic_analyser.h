@@ -71,8 +71,8 @@ namespace coder_compiler
 
     function_finder (function_finder&& f) : oldscope (f.oldscope), newscope (f.newscope)
     {
-      f.oldscope = octave::symbol_scope {};
-      f.newscope = octave::symbol_scope {};
+      f.oldscope = octave::symbol_scope {""};
+      f.newscope = octave::symbol_scope {""};
     }
 
     octave_value find_function (const std::string& name);
