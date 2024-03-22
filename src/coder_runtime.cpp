@@ -3054,7 +3054,14 @@ namespace coder
     coder_function_base* fcn = dynamic_cast<coder_function_base *> (static_cast<octave_base_value *>(get_value()));
 
     if (fcn)
-      fcn->call (output, nargout, args);
+      {
+        fcn->call (output, nargout, args);
+        return;
+      }
+
+    octave::tree_evaluator& ev = octave::interpreter::the_interpreter () -> get_evaluator ();
+
+    output.append (static_cast<octave_function *> (static_cast<octave_base_value *>(get_value()))->call (ev, nargout, args));
   }
 
   bool
@@ -4713,15 +4720,18 @@ namespace coder
   {
     if (fmaker)
       {
+        auto fm = fmaker;
+        auto nm = name;
+
         auto * h = new octave_fcn_handle (octave_value (fcn2ov (
               [=](coder_value_list& output, const octave_value_list& args, int nargout)->void
               {
-                bool is_called = method_dispatch (output, name, args, nargout);
+                bool is_called = method_dispatch (output, nm, args, nargout);
 
                 if (is_called)
                   return;
 
-                fmaker ().call (output, nargout, args);
+                 fm ().call (output, nargout, args);
               }))
 #if OCTAVE_MAJOR_VERSION < 6
               , name
