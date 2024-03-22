@@ -1765,7 +1765,11 @@ namespace coder
   };\
   template struct Rob<alias, &classtype::membername>;
 
+#if OCTAVE_MAJOR_VERSION >= 9
+  GETMEMBER(octave_base_value_count, octave_base_value, octave::refcount<octave_idx_type>, m_count)
+#else
   GETMEMBER(octave_base_value_count, octave_base_value, octave::refcount<octave_idx_type>, count)
+#endif
 
 #if OCTAVE_MAJOR_VERSION >= 6
   GETMEMBER(base_fcn_handle_name, octave::base_fcn_handle, std::string, m_name)
