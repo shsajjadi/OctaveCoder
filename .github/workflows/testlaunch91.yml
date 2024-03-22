@@ -34,13 +34,13 @@ jobs:
         run: copy src\octave2oct.oct octave2oct.oct
 
       - name: compile test
-        run: octave-9.1.0-w64\octave-launch  --no-gui --eval '"octave2oct("""randomplot""", """mode""", """static""", """verbose""", 1, """cache""", """cache2""")"'
+        run: octave-9.1.0-w64\octave-launch  --no-gui --eval "octave2oct('randomplot', 'mode', 'static', 'verbose', 1, 'cache', 'cache2')"
 
       - name: write runrp
         run: Add-Content -Path runrp.m -Value 'function runrp;randomplot(3, 4);end'
 
       - name: run test
-        run: octave-9.1.0-w64\octave-launch  --no-gui --eval '"runrp"'
+        run: octave-9.1.0-w64\octave-launch  --no-gui --eval "runrp"
 
       - name: list files
         run: dir
