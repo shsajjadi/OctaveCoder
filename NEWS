@@ -1,3 +1,15 @@
+coder 1.9.1- 2024-03-22
+---------------------
+
+* Compatibility with Octave 9.1.0
+* Fix bug related to finding private functions
+* Fix bug when creating multiple .oct files at the same time
+* Support method dispatch for function handles
+* Update readme explaining how method dispatch works in coder
+* Disabling mlock and munlock
+* Fix error due to  assigning to a variable having the same name as a function
+* Setting the name property of function handles to partially support some functions of statistics package
+
 coder 1.8.4- 2023-11-13
 ---------------------
 
