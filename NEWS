@@ -1,3 +1,8 @@
+coder 1.9.2- 2024-03-24
+---------------------
+
+* Fix segfault when calling a function with empty comma separated list
+
 coder 1.9.1- 2024-03-22
 ---------------------
 
