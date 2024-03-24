@@ -3253,6 +3253,9 @@ namespace coder
   {
     bool called = false;
 
+    if (args.length() == 0)
+      return called;
+
     auto& indexed_object = args(0);
 
     if (indexed_object.isobject ())
