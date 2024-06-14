@@ -23,8 +23,8 @@ jobs:
       # Runs a single command using the runners shell
       - name: Install octave
         run: |
-          sudo apt install flatpak
-          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          sudo apt-get update -qq
+          sudo apt-get install flatpak
           flatpak install flathub org.octave.Octave
       
       - name: print octave version
