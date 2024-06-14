@@ -45,7 +45,7 @@ jobs:
         run: octave  --no-gui --eval "runrp"
 
       - name: list files
-        run: dir
+        run: ls
 
       - name: compile imread
         run: octave  --no-gui --eval "octave2oct('imread', 'mode', 'static', 'verbose', 1, 'cache', 'cache2')"
