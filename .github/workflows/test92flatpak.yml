@@ -25,6 +25,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install flatpak
+          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak install flathub org.octave.Octave
       
       - name: print octave version
