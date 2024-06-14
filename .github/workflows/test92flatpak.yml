@@ -26,29 +26,29 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install flatpak
           sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          sudo flatpak install flathub org.kde.Sdk
+          sudo flatpak install flathub org.kde.Sdk/x86_64/5.15-23.08
           sudo flatpak install flathub org.octave.Octave
       
       - name: print octave version
-        run: sudo flatpak run org.octave.Octave  --no-gui --eval "version"
+        run: sudo flatpak run  --runtime=org.kde.Sdk org.octave.Octave  --no-gui --eval "version"
               
       - name: Install coder
-        run: sudo flatpak run org.octave.Octave  --no-gui --eval "pre_install;"
+        run: sudo flatpak run  --runtime=org.kde.Sdk org.octave.Octave  --no-gui --eval "pre_install;"
 
       - name: copy coder
         run: cp src/octave2oct.oct octave2oct.oct
 
       - name: compile test
-        run: sudo flatpak run org.octave.Octave  --no-gui --eval "octave2oct('randomplot', 'mode', 'static', 'verbose', 1, 'cache', 'cache2')"
+        run: sudo flatpak run  --runtime=org.kde.Sdk org.octave.Octave  --no-gui --eval "octave2oct('randomplot', 'mode', 'static', 'verbose', 1, 'cache', 'cache2')"
 
       - name: run test
-        run: sudo flatpak run org.octave.Octave  --no-gui --eval "randomplot(3, 4)"
+        run: sudo flatpak run  --runtime=org.kde.Sdk org.octave.Octave  --no-gui --eval "randomplot(3, 4)"
 
       - name: list files
         run: ls
 
       - name: compile imread
-        run: sudo flatpak run org.octave.Octave  --no-gui --eval "octave2oct('imread', 'mode', 'static', 'verbose', 1, 'cache', 'cache2')"
+        run: sudo flatpak run  --runtime=org.kde.Sdk org.octave.Octave  --no-gui --eval "octave2oct('imread', 'mode', 'static', 'verbose', 1, 'cache', 'cache2')"
         
       - name: test imread
-        run: sudoflatpak run org.octave.Octave  --no-gui --eval "disp(size(imread('caca.jpg')))"        
+        run: sudoflatpak run  --runtime=org.kde.Sdk org.octave.Octave  --no-gui --eval "disp(size(imread('caca.jpg')))"        
