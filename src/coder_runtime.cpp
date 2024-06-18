@@ -2822,7 +2822,7 @@ namespace coder
           std::string fullname = concat (path, std::string(file_name) + ".oct");
 
           octave_value ovfcn
-            = OCTAVE_DEPR_NS load_fcn_from_file (fullname, path, "", "", fcn_name, true);
+            = octave::load_fcn_from_file (fullname, path, "", "", fcn_name, true);
 
           auto * tmpfcn = ovfcn.function_value ();
 
