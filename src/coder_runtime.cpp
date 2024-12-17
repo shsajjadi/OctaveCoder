@@ -4754,12 +4754,38 @@ namespace coder
         return coder_value(h);
       }
 
-    auto rhs = op_rhs.get ();
+    auto &rhs = op_rhs.get ();
 
     octave_base_value * bv = rhs.base_value();
 
     if (bv)
       {
+        if (! bv->is_defined())
+          {
+            auto nm = name;
+
+            auto * h = new octave_fcn_handle (octave_value (fcn2ov (
+                  [=](coder_value_list& output, const octave_value_list& args, int nargout)->void
+                  {
+                    bool is_called = method_dispatch (output, nm, args, nargout);
+
+                    if (! is_called)
+                      error ("coder: \"%s\" cannot be evaluated as function handle", nm);
+                  }))
+#if OCTAVE_MAJOR_VERSION < 6
+                  , name
+#endif
+            );
+
+#if OCTAVE_MAJOR_VERSION >= 6
+            std::shared_ptr<octave::base_fcn_handle>& rep = h->*get(octave_fcn_handle_rep ());
+
+            std::string & fname = rep.get()->*get(base_fcn_handle_name ());
+
+            fname = name;
+#endif
+            return coder_value(h);
+          }
 #if OCTAVE_MAJOR_VERSION >= 6
         auto * h = new octave_fcn_handle (octave_value(bv, true));
 
