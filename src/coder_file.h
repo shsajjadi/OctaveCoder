@@ -25,6 +25,7 @@ namespace coder_compiler
     cmdline,
     package ,
     classdef,
+    legacyclass,
     unknown
   };
 

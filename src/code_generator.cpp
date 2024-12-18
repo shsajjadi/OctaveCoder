@@ -1978,7 +1978,7 @@ namespace coder_compiler
       if (same_type)
         os_src << "Ptr (";
 
-        op->accept (*this);
+      op->accept (*this);
 
       if (same_type)
         os_src << ")";
@@ -2025,7 +2025,7 @@ namespace coder_compiler
       if (same_type)
         os_src << "Ptr (";
 
-        op->accept (*this);
+      op->accept (*this);
 
       if (same_type)
         os_src << ")";
@@ -3153,6 +3153,10 @@ namespace coder_compiler
             else if ( m_file->type == file_type::classdef)
               {
                 os_src << "file_type::classdef";
+              }
+            else if ( m_file->type == file_type::legacyclass)
+              {
+                os_src << "file_type::legacyclass";
               }
           }
 

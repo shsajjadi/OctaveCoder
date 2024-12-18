@@ -102,7 +102,8 @@ namespace coder
     oct,
     mex,
     classdef,
-    package
+    package,
+    legacyclass
   };
 
   class coder_lvalue
@@ -2864,6 +2865,67 @@ namespace coder
           else
             {
               error("cannot find %s.mex>%s in %s ", file_name, fcn_name, path);
+            }
+
+          break;
+        }
+
+      case file_type::legacyclass:
+        {
+          struct unwind
+          {
+            unwind (std::function<void ()> fcn) : m_fcn (std::move (fcn))
+            {}
+
+            ~unwind ()
+            {
+              m_fcn ();
+            }
+
+            std::function<void ()> m_fcn;
+          };
+
+          auto change_directory = [](octave::interpreter& interp, const octave_value_list& dirname, int nargout = 0)
+          {
+#if OCTAVE_MAJOR_VERSION >= 6
+            OCTAVE_DEPR_NS Fcd(interp, dirname, nargout);
+#else
+            OCTAVE_DEPR_NS Fcd(dirname, nargout);
+#endif
+          };
+
+          using octave::sys::file_ops::concat;
+
+          std::string classpath = concat (path, "..");
+
+          octave::interpreter& interp = *octave::interpreter::the_interpreter ();
+
+          auto cur_dir = ovl(octave::sys::env::get_current_directory ());
+
+          change_directory(interp, ovl(octave_value(classpath)));
+
+          unwind unw ([&](){change_directory(interp, cur_dir);});
+
+          octave::symbol_table& octave_symtab = octave::interpreter::the_interpreter ()->get_symbol_table();
+
+#if OCTAVE_MAJOR_VERSION >= 6
+          octave_value ovfcn = octave_symtab.find_function (fcn_name, octave_value_list (), octave_symtab.current_scope ());
+#else
+          octave_value ovfcn = octave_symtab.find_function (fcn_name, octave_value_list ());
+#endif
+          auto * tmpfcn = ovfcn.function_value ();
+
+          if (tmpfcn)
+            {
+              value = tmpfcn;
+
+              grab (static_cast<octave_base_value *>(value));
+
+              isreference = false;
+            }
+          else
+            {
+              error("cannot find %s.m>%s in %s ", file_name, fcn_name, path);
             }
 
           break;

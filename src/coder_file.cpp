@@ -211,7 +211,10 @@ namespace coder_compiler
                   }
                 else
                   {
-                    type = file_type::m;
+                    if (fcn->is_legacy_constructor ())
+                      type = file_type::legacyclass;
+                    else
+                      type = file_type::m;
 
                     size_t pos
                       = file_full_name.find_last_of (octave::sys::file_ops::dir_sep_str ());
