@@ -5732,9 +5732,9 @@ namespace coder
     for_loop_rep (Ptr lhs, Ptr expr, bool fast_loop):
       val (expr->evaluate (1), false),
       looptype (
-        val.is_range () ? range_loop
+        val.is_range () && val.is_double_type () ? range_loop
       : val.is_scalar_type () ? scalar_loop
-      : val.is_matrix_type () || val.iscell () || val.is_string () || val.isstruct () ? matrix_loop
+      : val.is_matrix_type () || val.iscell () || val.is_string () || val.isstruct () || val.is_range () ? matrix_loop
       : undefined_loop
       ),
       base_val(),
