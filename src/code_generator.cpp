@@ -1878,6 +1878,8 @@ namespace coder_compiler
       os_src
         <<"Handle(";
 
+    bool is_resolved = true;
+
     auto idx = visit_dot_separated_fcn_handle (fh);
 
     if (! idx)
@@ -1889,7 +1891,9 @@ namespace coder_compiler
             if (! (symbol && symbol->file))
               symbol = scope->lookup_in_parent_scopes(fh.name(), symbol_type::ordinary);
 
-            if (symbol && symbol->file)
+            is_resolved = symbol && symbol->fcn.is_defined ();
+
+            if (is_resolved && symbol->file)
               {
                 os_src
                   << "&"
@@ -1902,7 +1906,7 @@ namespace coder_compiler
         os_src
           << mangle(fh.name());
 
-        if (! is_special_function && ! is_nested)
+        if (is_resolved && ! is_special_function && ! is_nested)
           os_src
             << "make";
       }
@@ -1974,7 +1978,7 @@ namespace coder_compiler
       if (same_type)
         os_src << "Ptr (";
 
-        op->accept (*this);
+      op->accept (*this);
 
       if (same_type)
         os_src << ")";
@@ -2021,7 +2025,7 @@ namespace coder_compiler
       if (same_type)
         os_src << "Ptr (";
 
-        op->accept (*this);
+      op->accept (*this);
 
       if (same_type)
         os_src << ")";
@@ -3149,6 +3153,10 @@ namespace coder_compiler
             else if ( m_file->type == file_type::classdef)
               {
                 os_src << "file_type::classdef";
+              }
+            else if ( m_file->type == file_type::legacyclass)
+              {
+                os_src << "file_type::legacyclass";
               }
           }
 

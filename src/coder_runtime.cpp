@@ -102,7 +102,8 @@ namespace coder
     oct,
     mex,
     classdef,
-    package
+    package,
+    legacyclass
   };
 
   class coder_lvalue
@@ -2868,6 +2869,67 @@ namespace coder
 
           break;
         }
+
+      case file_type::legacyclass:
+        {
+          struct unwind
+          {
+            unwind (std::function<void ()> fcn) : m_fcn (std::move (fcn))
+            {}
+
+            ~unwind ()
+            {
+              m_fcn ();
+            }
+
+            std::function<void ()> m_fcn;
+          };
+
+          auto change_directory = [](octave::interpreter& interp, const octave_value_list& dirname, int nargout = 0)
+          {
+#if OCTAVE_MAJOR_VERSION >= 6
+            OCTAVE_DEPR_NS Fcd(interp, dirname, nargout);
+#else
+            OCTAVE_DEPR_NS Fcd(dirname, nargout);
+#endif
+          };
+
+          using octave::sys::file_ops::concat;
+
+          std::string classpath = concat (path, "..");
+
+          octave::interpreter& interp = *octave::interpreter::the_interpreter ();
+
+          auto cur_dir = ovl(octave::sys::env::get_current_directory ());
+
+          change_directory(interp, ovl(octave_value(classpath)));
+
+          unwind unw ([&](){change_directory(interp, cur_dir);});
+
+          octave::symbol_table& octave_symtab = octave::interpreter::the_interpreter ()->get_symbol_table();
+
+#if OCTAVE_MAJOR_VERSION >= 6
+          octave_value ovfcn = octave_symtab.find_function (fcn_name, octave_value_list (), octave_symtab.current_scope ());
+#else
+          octave_value ovfcn = octave_symtab.find_function (fcn_name, octave_value_list ());
+#endif
+          auto * tmpfcn = ovfcn.function_value ();
+
+          if (tmpfcn)
+            {
+              value = tmpfcn;
+
+              grab (static_cast<octave_base_value *>(value));
+
+              isreference = false;
+            }
+          else
+            {
+              error("cannot find %s.m>%s in %s ", file_name, fcn_name, path);
+            }
+
+          break;
+        }
       case file_type::classdef:
         {
           auto& cdm = octave::interpreter::the_interpreter ()->get_cdef_manager ();
@@ -4754,12 +4816,38 @@ namespace coder
         return coder_value(h);
       }
 
-    auto rhs = op_rhs.get ();
+    auto &rhs = op_rhs.get ();
 
     octave_base_value * bv = rhs.base_value();
 
     if (bv)
       {
+        if (! bv->is_defined())
+          {
+            auto nm = name;
+
+            auto * h = new octave_fcn_handle (octave_value (fcn2ov (
+                  [=](coder_value_list& output, const octave_value_list& args, int nargout)->void
+                  {
+                    bool is_called = method_dispatch (output, nm, args, nargout);
+
+                    if (! is_called)
+                      error ("coder: \"%s\" cannot be evaluated as function handle", nm);
+                  }))
+#if OCTAVE_MAJOR_VERSION < 6
+                  , name
+#endif
+            );
+
+#if OCTAVE_MAJOR_VERSION >= 6
+            std::shared_ptr<octave::base_fcn_handle>& rep = h->*get(octave_fcn_handle_rep ());
+
+            std::string & fname = rep.get()->*get(base_fcn_handle_name ());
+
+            fname = name;
+#endif
+            return coder_value(h);
+          }
 #if OCTAVE_MAJOR_VERSION >= 6
         auto * h = new octave_fcn_handle (octave_value(bv, true));
 
@@ -5644,9 +5732,9 @@ namespace coder
     for_loop_rep (Ptr lhs, Ptr expr, bool fast_loop):
       val (expr->evaluate (1), false),
       looptype (
-        val.is_range () ? range_loop
+        val.is_range () && val.is_double_type () ? range_loop
       : val.is_scalar_type () ? scalar_loop
-      : val.is_matrix_type () || val.iscell () || val.is_string () || val.isstruct () ? matrix_loop
+      : val.is_matrix_type () || val.iscell () || val.is_string () || val.isstruct () || val.is_range () ? matrix_loop
       : undefined_loop
       ),
       base_val(),

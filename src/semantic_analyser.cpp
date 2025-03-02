@@ -872,7 +872,7 @@ namespace coder_compiler
 
         local_functions.clear();
 
-        if (current_file()->fcn.is_user_function())
+        if ((current_file()->type == file_type::m || current_file()->type == file_type::cmdline) && current_file()->fcn.is_user_function())
           {
             for (const auto& sub: current_file()->fcn.user_function_value()->subfunctions())
               {
