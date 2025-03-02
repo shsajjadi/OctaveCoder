@@ -22,7 +22,7 @@ jobs:
 
       # Runs a single command using the runners shell
       - name: Download Octave
-        run: Invoke-WebRequest https://nightly.octave.org/data/stable/956/octave-2025-03-01-00-08-w64.7z -OutFile nightly.7z
+        run: Invoke-WebRequest https://nightly.octave.org/data/stable/956/octave-2025-03-01-00-08-default-w64.7z -OutFile nightly.7z
 
       - name: Extract Octave
         run: 7z x nightly.7z
