@@ -25,6 +25,12 @@
   #define OCTAVE_RANGE ::Range
 #endif
 
+#if OCTAVE_MAJOR_VERSION < 10
+    #define LIST_LEN(list) list->length()
+#else
+    #define LIST_LEN(list) list->size()
+#endif
+
 namespace coder_compiler
 {
   namespace
@@ -343,7 +349,7 @@ namespace coder_compiler
       {
         bool takes_varargs = param_list->takes_varargs ();
 
-        int len = param_list->length ();
+        int len = LIST_LEN(param_list);
 
         if (len > 0 || takes_varargs)
           {
@@ -1015,7 +1021,7 @@ namespace coder_compiler
       {
         bool takes_varargs = fcn.takes_varargs ();
 
-        int len = param_list->length ();
+        int len = LIST_LEN(param_list);
 
         if (len > 0 || takes_varargs)
           {
@@ -1189,7 +1195,7 @@ namespace coder_compiler
       {
         bool takes_var_return = fcn.takes_var_return ();
 
-        int len = ret_list->length ();
+        int len = LIST_LEN(ret_list);
 
         os_src << "return make_return_list(output";
 

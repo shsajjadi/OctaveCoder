@@ -309,8 +309,13 @@ namespace coder_compiler
     void
     visit_classdef_properties_block(octave::tree_classdef_properties_block&){}
 
+#if OCTAVE_MAJOR_VERSION < 10
     void
-    visit_classdef_methods_list(octave::tree_classdef_methods_list&){}
+    visit_classdef_methods_list (octave::tree_classdef_methods_list&) {}
+#else
+    void
+    visit_classdef_methods_list (octave::tree_classdef_method_list&) {}
+#endif
 
     void
     visit_classdef_methods_block(octave::tree_classdef_methods_block&){}
@@ -318,8 +323,13 @@ namespace coder_compiler
     void
     visit_classdef_event(octave::tree_classdef_event&){}
 
+#if OCTAVE_MAJOR_VERSION < 10
     void
-    visit_classdef_events_list(octave::tree_classdef_events_list&){}
+    visit_classdef_events_list (octave::tree_classdef_events_list&) {}
+#else
+    void
+    visit_classdef_event_list (octave::tree_classdef_event_list&) {}
+#endif
 
     void
     visit_classdef_events_block(octave::tree_classdef_events_block&){}
