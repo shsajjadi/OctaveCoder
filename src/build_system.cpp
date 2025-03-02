@@ -600,6 +600,12 @@ namespace coder_compiler
       std::function<void ()> m_fcn;
     };
 
+#if OCTAVE_MAJOR_VERSION < 10
+    std::string stdflag = "-std=gnu++11";
+#else
+    std::string stdflag = "-std=gnu++17";
+#endif
+
     auto init = [&]()
     {
       std::string filename = "coder";
@@ -651,7 +657,7 @@ namespace coder_compiler
           call_mkoctfile (
             ovl(
             octave_value( quote("-o " + obj)),
-            octave_value(quote("-std=gnu++11")),
+            octave_value(quote(stdflag)),
             octave_value("-fPIC"),
             octave_value("-c"),
             octave_value(dbg),
@@ -698,7 +704,7 @@ namespace coder_compiler
           call_mkoctfile (
             ovl(
             octave_value( quote("-o " + obj)),
-            octave_value(quote("-std=gnu++11")),
+            octave_value(quote(stdflag)),
             octave_value("-fPIC"),
             octave_value("-c"),
             octave_value(dbg),
@@ -734,7 +740,7 @@ namespace coder_compiler
           call_mkoctfile (
             ovl(
             octave_value( quote("-o " + tmpobj)),
-            octave_value(quote("-std=gnu++11")),
+            octave_value(quote(stdflag)),
             octave_value("-fPIC"),
             octave_value("-c"),
             octave_value(dbg),
@@ -861,7 +867,7 @@ namespace coder_compiler
       call_mkoctfile (
         ovl(
         octave_value( quote("-o " + obj)),
-        octave_value(quote("-std=gnu++11")),
+        octave_value(quote(stdflag)),
         octave_value("-fPIC"),
         octave_value("-c"),
         octave_value(dbg),
@@ -931,7 +937,7 @@ namespace coder_compiler
           call_mkoctfile (
             ovl(
             octave_value( quote("-o " + obj)),
-            octave_value(quote("-std=gnu++11")),
+            octave_value(quote(stdflag)),
             octave_value("-fPIC"),
             octave_value("-c"),
             octave_value(dbg),
@@ -993,7 +999,7 @@ namespace coder_compiler
             octave_value("-o"),
             octave_value(quote(obj)),
             octave_value("-c"),
-            octave_value(quote("-std=gnu++11")),
+            octave_value(quote(stdflag)),
             octave_value(dbg),
             octave_value(quote("-I" + incdir)),
             octave_value("-fPIC"),
@@ -1041,7 +1047,7 @@ namespace coder_compiler
             octave_value("-o"),
             octave_value(quote(obj)),
             octave_value("-c"),
-            octave_value(quote("-std=gnu++11")),
+            octave_value(quote(stdflag)),
             octave_value(dbg),
             octave_value(quote("-I" + incdir)),
             octave_value("-fPIC"),

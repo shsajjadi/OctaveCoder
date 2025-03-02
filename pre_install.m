@@ -21,8 +21,16 @@ function pre_install (in)
   obj = cellfun (@format_path, fullfile (sourcedir , strcat (cppnames, '.o')), 'Un', 0);
   oct = format_path (fullfile (sourcedir , 'octave2oct.oct'));
 
+  version_num = str2num(strsplit(version, '.'){1});
+
+  if version_num < 10
+    stdflag = '-std=gnu++11';
+  else
+    stdflag = '-std=gnu++17';
+  end
+
   for k = 1:numel (cpp)
-    mkoctfile ( '-c', '-O2', '-std=gnu++11', '-g0' , ['-I' sourcedir], '-o', obj{k}, cpp{k});
+    mkoctfile ( '-c', '-O2', stdflag, '-g0' , ['-I' sourcedir], '-o', obj{k}, cpp{k});
   endfor
 
   mkoctfile ('-o', oct, obj {:});
