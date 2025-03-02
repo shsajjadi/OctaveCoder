@@ -22,10 +22,10 @@ jobs:
 
       # Runs a single command using the runners shell
       - name: Download Octave
-        run: Invoke-WebRequest https://github.com/gnu-octave/octave/actions/runs/13614986819/artifacts/2677383683 -OutFile nightly.7z
+        run: Invoke-WebRequest "https://productionresultssa3.blob.core.windows.net/actions-results/988c764f-6d21-4744-806e-c2441d50ad38/workflow-job-run-1fbdc537-ffce-5f66-6168-5bbc7fe7ec53/artifacts/707a066e8dd8b061160b6d77ea1b1dff46894167eb937eed529dcb03a810fc0a.zip?rscd=attachment%3B+filename%3D%22mingw-w64-x86_64-octave-2025-03-02_11-51-40.zip%22&se=2025-03-02T18%3A29%3A40Z&sig=2XBYHB7M4gMEsA4aHoYs8jv%2Ftkvh6W4EK2uRu9BxfHo%3D&ske=2025-03-03T04%3A36%3A21Z&skoid=ca7593d4-ee42-46cd-af88-8b886a2f84eb&sks=b&skt=2025-03-02T16%3A36%3A21Z&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skv=2025-01-05&sp=r&spr=https&sr=b&st=2025-03-02T18%3A19%3A35Z&sv=2025-01-05" -OutFile nightly.zip
 
       - name: Extract Octave
-        run: 7z x nightly.7z
+        run: 7z x nightly.zip
 
       - name: Install coder
         run: nightly\octave-launch  --no-gui --eval "pre_install;"
