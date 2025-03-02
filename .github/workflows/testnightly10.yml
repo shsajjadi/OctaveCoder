@@ -22,7 +22,7 @@ jobs:
 
       # Runs a single command using the runners shell
       - name: Download Octave
-        run: Invoke-WebRequest https://nightly.octave.org/data/stable/956/octave-2025-03-01-00-08-default-w64.7z -OutFile nightly.7z
+        run: Invoke-WebRequest https://nightly.octave.org/data/stable/956/octave-2025-03-01-00-08-w64.7z -OutFile nightly.7z
 
       - name: Extract Octave
         run: 7z x nightly.7z
@@ -31,19 +31,19 @@ jobs:
         run: dir
         
       - name: Install coder
-        run: octave-2025-03-01-00-08-default-w64\octave-launch  --no-gui --eval "pre_install;"
+        run: octave-2025-03-01-00-08-w64\octave-launch  --no-gui --eval "pre_install;"
 
       - name: copy coder
         run: copy src\octave2oct.oct octave2oct.oct
 
       - name: compile test
-        run: octave-2025-03-01-00-08-default-w64\octave-launch  --no-gui --eval "octave2oct('randomplot', 'mode', 'static', 'verbose', 1, 'cache', 'cache2')"
+        run: octave-2025-03-01-00-08-w64\octave-launch  --no-gui --eval "octave2oct('randomplot', 'mode', 'static', 'verbose', 1, 'cache', 'cache2')"
 
       - name: write runrp
         run: Add-Content -Path runrp.m -Value 'function runrp;randomplot(3, 4);end'
 
       - name: run test
-        run: octave-2025-03-01-00-08-default-w64\octave-launch  --no-gui --eval "runrp"
+        run: octave-2025-03-01-00-08-w64\octave-launch  --no-gui --eval "runrp"
 
       - name: list files
         run: dir
