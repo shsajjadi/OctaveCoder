@@ -13,6 +13,12 @@
 
 #include "semantic_analyser.h"
 
+#if OCTAVE_MAJOR_VERSION < 10
+    #define LIST_LEN(list) list->length()
+#else
+    #define LIST_LEN(list) list->size()
+#endif
+
 namespace coder_compiler
 {
   struct unwind
@@ -214,7 +220,7 @@ namespace coder_compiler
 
     if (lhs)
       {
-        int len = lhs->length ();
+        int len = LIST_LEN(lhs);
 
         if (len == 0 || len > 2)
           error ("invalid number of output arguments in for command");
