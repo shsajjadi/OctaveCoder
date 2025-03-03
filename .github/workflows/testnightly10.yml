@@ -29,7 +29,9 @@ jobs:
 
       - name: list files
         run: dir
-        
+
+      - name: Print Octave config
+        run: octave-2025-03-01-00-08-w64\octave-launch  --no-gui --eval "disp(__octave_config_info__)"
       - name: Install coder
         run: octave-2025-03-01-00-08-w64\octave-launch  --no-gui --eval "pre_install;"
 
