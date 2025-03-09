@@ -39,8 +39,8 @@ function pre_install (in)
     parserdir = format_path(fullfile(sourcedir, 'parse-tree'));
     cc  = cellfun (@format_path, fullfile (parserdir , strcat (ccnames, '.cc')), 'Un', 0);
     objcc = cellfun (@format_path, fullfile (sourcedir , strcat (ccnames, '.o')), 'Un', 0);
-    cpp = [cpp cc];
-    obj = [obj objcc];
+    cpp = [cpp; cc];
+    obj = [obj; objcc];
     options = [options, {['-I' parserdir]}];
     stdflag = '-std=gnu++17';
   end
