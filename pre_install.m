@@ -41,7 +41,7 @@ function pre_install (in)
     objcc = cellfun (@format_path, fullfile (sourcedir , strcat (ccnames, '.o')), 'Un', 0);
     cpp = [cpp cc];
     obj = [obj objcc];
-    options = [options, {['-I' parserdir}];
+    options = [options, {['-I' parserdir]}];
     stdflag = '-std=gnu++17';
   end
 
