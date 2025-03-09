@@ -24,7 +24,7 @@ function pre_install (in)
 
   oct = format_path (fullfile (sourcedir , 'octave2oct.oct'));
 
-  options = { '-c', '-O2', stdflag, '-g0' , ['-I' sourcedir]};
+  options = { '-c', '-O2', '-g0' , ['-I' sourcedir]};
 
   version_num = str2num(strsplit(version, '.'){1});
 
@@ -44,7 +44,9 @@ function pre_install (in)
     options = [options, {['-I' parserdir]}];
     stdflag = '-std=gnu++17';
   end
-
+  
+  options = [{stdflag}, options];
+  
   for k = 1:numel (cpp)
     mkoctfile ( options{:}, '-o', obj{k}, cpp{k});
   endfor
