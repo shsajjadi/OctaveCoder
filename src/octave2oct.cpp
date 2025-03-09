@@ -1,6 +1,16 @@
 #include <string>
 #include <vector>
 
+#include <octave/octave-config.h>
+#ifdef OCTAVE_EXPORT
+  #undef OCTAVE_EXPORT
+  #define OCTAVE_EXPORT
+#endif
+#ifdef OCTAVE_IMPORT
+  #undef OCTAVE_IMPORT
+  #define OCTAVE_IMPORT
+#endif
+
 #include <octave/Cell.h>
 #include <octave/defun-dld.h>
 #include <octave/dir-ops.h>

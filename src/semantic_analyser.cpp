@@ -2,6 +2,16 @@
 #include <memory>
 #include "sys/stat.h"
 
+#include <octave/octave-config.h>
+#ifdef OCTAVE_EXPORT
+  #undef OCTAVE_EXPORT
+  #define OCTAVE_EXPORT
+#endif
+#ifdef OCTAVE_IMPORT
+  #undef OCTAVE_IMPORT
+  #define OCTAVE_IMPORT
+#endif
+
 #include <octave/builtin-defun-decls.h>
 #include <octave/dir-ops.h>
 #include <octave/file-ops.h>
