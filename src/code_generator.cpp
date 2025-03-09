@@ -973,12 +973,14 @@ namespace coder_compiler
   void
   code_generator::visit_octave_user_function_header (octave_user_function& fcn)
   {
+#if OCTAVE_MAJOR_VERSION < 10
     octave::comment_list *leading_comment = fcn.leading_comment ();
 
     if (leading_comment)
       {
         //print_comment_list (leading_comment);
       }
+#endif    
 
     bool nested  = fcn.is_nested_function() ;
 
