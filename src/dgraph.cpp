@@ -3,6 +3,16 @@
 #include <set>
 #include <stack>
 
+#include <octave/octave-config.h>
+#ifdef OCTAVE_EXPORT
+  #undef OCTAVE_EXPORT
+  #define OCTAVE_EXPORT
+#endif
+#ifdef OCTAVE_IMPORT
+  #undef OCTAVE_IMPORT
+  #define OCTAVE_IMPORT
+#endif
+
 #include "coder_file.h"
 #include "dgraph.h"
 

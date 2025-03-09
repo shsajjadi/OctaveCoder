@@ -1,3 +1,13 @@
+#include <octave/octave-config.h>
+#ifdef OCTAVE_EXPORT
+  #undef OCTAVE_EXPORT
+  #define OCTAVE_EXPORT
+#endif
+#ifdef OCTAVE_IMPORT
+  #undef OCTAVE_IMPORT
+  #define OCTAVE_IMPORT
+#endif
+
 #include <octave/oct.h>
 #include <octave/oct-env.h>
 #include <octave/ov-usr-fcn.h>

@@ -1,6 +1,16 @@
 #include  <bitset>
 #include  <memory>
 
+#include <octave/octave-config.h>
+#ifdef OCTAVE_EXPORT
+  #undef OCTAVE_EXPORT
+  #define OCTAVE_EXPORT
+#endif
+#ifdef OCTAVE_IMPORT
+  #undef OCTAVE_IMPORT
+  #define OCTAVE_IMPORT
+#endif
+
 #include <octave/defaults.h>
 #include <octave/error.h>
 #include <octave/file-ops.h>
