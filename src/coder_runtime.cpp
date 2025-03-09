@@ -1718,6 +1718,7 @@ template <int size>
   {
     static const std::string s = R"source(
 
+#include <cassert>
 #include "error.h"
 #include "ov-null-mat.h"
 #include "ov-bool.h"
