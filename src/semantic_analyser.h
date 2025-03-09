@@ -71,8 +71,13 @@ namespace coder_compiler
 
     function_finder (function_finder&& f) : oldscope (f.oldscope), newscope (f.newscope)
     {
+#if OCTAVE_MAJOR_VERSION < 10
       f.oldscope = octave::symbol_scope {""};
       f.newscope = octave::symbol_scope {""};
+#else
+      f.oldscope = octave::symbol_scope::invalid ();
+      f.newscope = octave::symbol_scope::invalid ();
+#endif        
     }
 
     octave_value find_function (const std::string& name);
