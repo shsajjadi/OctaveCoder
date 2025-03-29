@@ -1,3 +1,17 @@
+coder 1.10.1- 2025-03-30
+---------------------
+
+* Supporting old style (legacy) classes through the interpreter
+* Enable range loop for non double types
+* Fix compatibility with Octave 10. The fix is mostly related to the new "visibility" flag that Octave
+   in version 10 is compiled with that hides the exported symbols of the core Octave shared libraries
+   except symbols that are tagged as API. That change possibly ends the lifetime of the packages [the only package?] like Coder
+   that use non API functions.
+   This version of Coder as a workaround contains parts of the Octave source code that fortunately solves the problem in Windows.
+   Other systems aren't tested. If this version of the package doesn't work on those systems
+   the best option is recompiling Octave using this flag :
+    "--disable-visibility-flags".
+
 coder 1.9.2- 2024-03-24
 ---------------------
 
