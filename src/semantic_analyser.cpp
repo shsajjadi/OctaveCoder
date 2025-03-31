@@ -19,6 +19,7 @@
 #include <octave/oct.h>
 #include <octave/oct-env.h>
 #include <octave/ov-usr-fcn.h>
+#include <octave/parse.h>
 #include <octave/version.h>
 
 #include "semantic_analyser.h"
@@ -2046,7 +2047,11 @@ namespace coder_compiler
 
     string_vector cmd = octave_symtab.cmdline_function_names ();
 
+#if OCTAVE_MAJOR_VERSION >= 6
     std::list<std::string> autoloads = ev.autoloaded_functions ();
+#else
+    std::list<std::string> autoloads = octave::autoloaded_functions ().std_list ();
+#endif
 
     string_vector dirs = lp.dirs ();
 
