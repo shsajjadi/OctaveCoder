@@ -5631,7 +5631,11 @@ namespace coder
       {
         octave::interpreter& interp = *octave::interpreter::the_interpreter ();
 
+#if OCTAVE_MAJOR_VERSION >= 6
         octave_value_list retval = OCTAVE_DEPR_NS Ffeval (interp, args, nargout);
+#else
+        octave_value_list retval = OCTAVE_DEPR_NS Ffeval (args, nargout);
+#endif
 
         retval.make_storable_values ();
 

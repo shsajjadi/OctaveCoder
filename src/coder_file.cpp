@@ -221,7 +221,11 @@ namespace coder_compiler
                   }
                 else
                   {
+#if OCTAVE_MAJOR_VERSION >= 6
                     if (fcn->is_legacy_constructor ())
+#else
+                    if (fcn->is_class_constructor ())
+#endif
                       type = file_type::legacyclass;
                     else
                       type = file_type::m;

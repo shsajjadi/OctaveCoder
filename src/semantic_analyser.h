@@ -77,7 +77,7 @@ namespace coder_compiler
 #else
       f.oldscope = octave::symbol_scope::invalid ();
       f.newscope = octave::symbol_scope::invalid ();
-#endif        
+#endif
     }
 
     octave_value find_function (const std::string& name);
@@ -210,7 +210,7 @@ namespace coder_compiler
     { }
 
     void
-    visit_return_list (octave::tree_return_list& lst){}
+    visit_return_list (octave::tree_return_list& lst)
     { }
 #endif
     void
@@ -305,13 +305,13 @@ namespace coder_compiler
 
     void
     visit_return_command (octave::tree_return_command&) {}
-
+#if OCTAVE_MAJOR_VERSION >= 6
     void
     visit_superclass_ref (octave::tree_superclass_ref&) {}
 
     void
     visit_metaclass_query (octave::tree_metaclass_query&) {}
-
+#endif
     void
     visit_classdef_attribute (octave::tree_classdef_attribute&) {}
 

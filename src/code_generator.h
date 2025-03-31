@@ -281,13 +281,14 @@ namespace coder_compiler
 
     void
     visit_do_until_command (octave::tree_do_until_command& cmd);
+#if OCTAVE_MAJOR_VERSION >= 6
+    void
+    visit_superclass_ref (octave::tree_superclass_ref&) {}
+
+    void
+    visit_metaclass_query (octave::tree_metaclass_query&) {}
+#endif
 #if OCTAVE_MAJOR_VERSION >= 8
-    void
-    visit_superclass_ref(octave::tree_superclass_ref&){}
-
-    void
-    visit_metaclass_query(octave::tree_metaclass_query&){}
-
     void
     visit_classdef_attribute(octave::tree_classdef_attribute&){}
 
