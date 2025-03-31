@@ -616,7 +616,7 @@ namespace coder_compiler
     std::string stdflag = "-std=gnu++17";
 #endif
 
-    auto init = [&]()
+    auto init_runtime = [&]()
     {
       std::string filename = "coder";
 
@@ -688,6 +688,48 @@ namespace coder_compiler
             octave_value(quote(obj)),
             octave_value("-Wl,--output," + quote(bin) + strpl)
             ));
+        }
+    };
+
+    auto init_oct = [&]()
+    {
+      std::string filename = "oct";
+
+      std::string cpp = concat(srcdir, filename + ".cpp" );
+
+      std::string obj = concat(libdir, filename + ".o" );
+
+      octave::sys::file_stat c_stat (cpp);
+
+      octave::sys::file_stat o_stat (obj);
+
+      bool recompile = ! c_stat.exists () || ! o_stat.exists ();
+
+      if (! c_stat.exists ())
+        {
+            std::ofstream source(cpp);
+
+            source << oct_source ();
+
+            source.close ();
+        }
+
+      if (recompile)
+        {
+          if (verbose)
+            octave_stdout << "  compiling oct backbone\n";
+
+          call_mkoctfile (
+            ovl(
+            octave_value( quote("-o " + obj)),
+            octave_value(quote(stdflag)),
+            octave_value("-fPIC"),
+            octave_value("-c"),
+            octave_value(dbg),
+            octave_value(quote("-I" + incdir)),
+            octave_value (coptions),
+            octave_value(quote(cpp))
+           ));
         }
     };
 
@@ -976,26 +1018,26 @@ namespace coder_compiler
           std::ofstream oct_os(cc);
 
           oct_os
-            << "#include <octave/oct.h>" << "\n"
-            << "#include \"interpreter.h\"" << "\n"
             << "#include" << quote("coder.h") << "\n"
             << "#include" << quote(filename + ".h") << "\n"
-            << "DEFCODER_DLD ("
+            << "DEFCODER_FAST_DLD ("
             << out_name
-            << ", interp, args, nargout,"
+            << ", "
             << quote(out_name)
             << ",\n{\n"
             << "  return "
             << nsname
             << "::"
             <<  mangle(sym_name)
-            << "make().get_value()->function_value()->call(interp.get_evaluator(),nargout,args);\n})";
+            << "make ().get_value ();\n})";
 
           oct_os.close ();
 
           obj_files.push_back (quote (obj));
 
           obj_files.push_back (quote (concat (libdir, "coder.o")));
+
+          obj_files.push_back (quote (concat (libdir, "oct.o")));
 
           for (const auto& entry : dependency )
             {
@@ -1032,25 +1074,29 @@ namespace coder_compiler
 
           std::string bridge_filename = lowercase (bridge_nsname);
 
+          std::list<octave_value> obj_files;
+
           std::ofstream oct_os(cc);
 
           oct_os
-            << "#include <octave/oct.h>" << "\n"
-            << "#include \"interpreter.h\"" << "\n"
             << "#include" << quote("coder.h") << "\n"
             << "#include" << quote(bridge_filename + ".h") << "\n"
-            << "DEFCODER_DLD ("
+            << "DEFCODER_FAST_DLD ("
             << out_name
-            << ", interp, args, nargout,"
+            << ", "
             << quote(out_name)
             << ",\n{\n"
             << "  return "
             << bridge_nsname
             << "::"
             <<  mangle(sym_name)
-            << "make().get_value()->function_value()->call(interp.get_evaluator(),nargout,args);\n})";
+            << "make ().get_value ();\n})";
 
           oct_os.close ();
+
+          obj_files.push_back (quote (obj));
+
+          obj_files.push_back (quote (concat (libdir, "oct.o")));
 
           call_mkoctfile(
             ovl(
@@ -1071,10 +1117,9 @@ namespace coder_compiler
             octave_value(quote("-L" + bindir)),
             octave_value("-l" + bridge_filename),
             octave_value("-o"),
-            octave_value(quote(oct)),
-            octave_value(quote(obj)),
-            octave_value(strp)
-            )
+            octave_value(quote(oct)))
+            .append (octave_value_list (obj_files))
+            .append (octave_value(strp))
           );
         }
 
@@ -1123,7 +1168,9 @@ namespace coder_compiler
 
     if (mode != bm_single)
       {
-        init();
+        init_runtime();
+
+        init_oct();
 
         for (const auto& file : sorted_files )
           {
