@@ -16,10 +16,6 @@ namespace coder_compiler
 extern int buffer_error_messages;
 #endif
 
-class octave_value_list;
-
-class octave_function;
-
 namespace octave
 {
   class tree_evaluator;
@@ -27,7 +23,11 @@ namespace octave
   class interpreter;
 
   class execution_exception;
+
+  class dynamic_library;
 }
+
+class octave_function;
 
 class octave_value;
 
@@ -1751,6 +1751,22 @@ template <int size>
     return fcn;                                                         \
   }
 
+#define DEFCODER_FAST_DLD(name, doc, fcn_body)                                    \
+  octave_function *                                                           \
+  coder_make_dld_function (const octave::dynamic_library&,                        \
+                            const char *, const char *, bool);                    \
+  octave_base_value *                                                             \
+  coder_get_oct_function ()                                                       \
+  {                                                                               \
+    fcn_body                                                                      \
+  }                                                                               \
+  extern "C"                                                                      \
+  OCTAVE_EXPORT                                                                   \
+  octave_function *                                                               \
+  G ## name (const octave::dynamic_library& shl, bool relative)                   \
+  {                                                                               \
+    return coder_make_dld_function (shl, #name, doc, relative);                    \
+  }
 
     )header"; return s;
   }
@@ -6105,5 +6121,37 @@ namespace coder
 }
 
     )source"; return s;
+  }
+
+  const std::string& oct_source ()
+  {
+    static const std::string o = R"oct(
+#include <octave/oct.h>
+#include <octave/interpreter.h>
+octave_base_value * coder_get_oct_function ();
+octave_function *
+coder_make_dld_function (const octave::dynamic_library& shl,
+                         const char * name, const char * doc, bool relative)
+{
+  check_version (OCTAVE_API_VERSION, name);
+
+  auto function = [](octave::interpreter& interp,
+                     const octave_value_list& args, int nargout)
+  -> octave_value_list
+    { return
+        coder_get_oct_function ()
+          ->function_value ()
+          ->call (interp.get_evaluator (), nargout, args);
+    };
+
+  octave_dld_function * fcn
+    = octave_dld_function::create (function, shl, name, doc);
+
+  if (relative)
+    fcn->mark_relative ();
+
+  return fcn;
+}
+  )oct"; return o;
   }
 }
