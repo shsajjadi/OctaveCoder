@@ -343,7 +343,7 @@ namespace coder_compiler
   code_generator::visit_anon_fcn_handle (octave::tree_anon_fcn_handle& anon_fh)
   {
     os_src
-      << "Anonymous (fcn2ov(["
+      << "Anonymous (sfcn2ov (new auto (std::move (["
       << "="
       << "](coder_value_list& output, const octave_value_list& args, int nargout) mutable\n{\n";
 
@@ -399,7 +399,7 @@ namespace coder_compiler
 
     decrement_indent_level (os_src);
 
-    os_src << "}))";
+    os_src << "}))))";
 
     fcn_scopes.pop_back ();
   }
@@ -990,7 +990,7 @@ namespace coder_compiler
       {
         //print_comment_list (leading_comment);
       }
-#endif    
+#endif
 
     bool nested  = fcn.is_nested_function() ;
 
@@ -1110,7 +1110,7 @@ namespace coder_compiler
     auto scope_searcher = traversed_scopes.front()[0].front();
 
     os_src
-      << "ConstCast (Symbol (fcn2ov (ConstCast ([=";
+      << "ConstCast (Symbol (sfcn2ov (new auto ([=";
 
     os_src
       << "](coder_value_list& output, const octave_value_list& args, int nargout) mutable\n{\n";

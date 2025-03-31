@@ -6,9 +6,9 @@ namespace coder_compiler
   {
     static const std::string s = R"header(
 
-#include "version.h"
-#include <functional>
+#include <octave/version.h>
 #include <initializer_list>
+#include <memory>
 #include <type_traits>
 #include <utility>
 
@@ -37,6 +37,50 @@ class octave_base_value;
 
 namespace coder
 {
+  //https://blog.rink.nu/2024/07/08/implementing-a-stdfunction-like-wrapper-in-c-part-3-using-a-static-storage-buffer/
+  template<typename ReturnType, typename... Args>
+  struct MyFunctionInterface
+  {
+    virtual ~MyFunctionInterface() = default;
+    virtual ReturnType operator()(Args...) = 0;
+  };
+
+  template<typename Fn, typename ReturnType, typename... Args>
+  class MyFunctionImpl : public MyFunctionInterface<ReturnType, Args...>
+  {
+    std::unique_ptr<Fn> fn;
+
+  public:
+    MyFunctionImpl(Fn * fn) : fn(fn) { }
+
+    ReturnType operator()(Args... args) override
+    {
+      return fn->operator()(std::forward<Args>(args)...);
+    }
+  };
+
+  template<typename ReturnType, typename... Args>
+  class MyFunction;
+
+  template<typename ReturnType, typename... Args>
+  class MyFunction<ReturnType(Args...)>
+  {
+    std::unique_ptr<MyFunctionInterface<ReturnType, Args...>> fn;
+
+  public:
+    template<typename Func>
+    MyFunction(Func * function)
+    {
+      using type = MyFunctionImpl<Func, ReturnType, Args...>;
+
+      fn = std::unique_ptr<type>(new type(function));
+    }
+
+    ReturnType operator()(Args... args)
+    {
+      return fn->operator()(std::forward<Args>(args)...);
+    }
+  };
   class coder_value_list;
 
   typedef octave_value_list (*coder_function_fcn) (const octave_value_list&, int);
@@ -86,15 +130,12 @@ namespace coder
 
   octave_base_value* fcn2ov(stateless_function f);
 
-  octave_base_value* stdfcntoov (const std::function<void(coder_value_list&, const octave_value_list&, int)>& fcn);
+  octave_base_value* myfcntoov (MyFunction<void(coder_value_list&, const octave_value_list&, int)>&& fcn);
 
-  octave_base_value* stdfcntoov (std::function<void(coder_value_list&, const octave_value_list&, int)>&& fcn);
-
-  template <typename F, typename std::enable_if<
-            !std::is_convertible<F,stateless_function>::value, int>::type = 0 >
-  octave_base_value* fcn2ov(F&& fun)
+  template <typename F>
+  octave_base_value* sfcn2ov(F * fun)
   {
-    return stdfcntoov(std::forward<F> (fun));
+    return myfcntoov(fun);
   }
 
   enum class file_type
@@ -1647,20 +1688,20 @@ template <int size>
 #define NARGINCHK_MAKER Symbol narginchk_maker(([&args]()\
 {\
   int nargin = ovl_length(args);\
-  return Symbol(fcn2ov(\
+  return Symbol(sfcn2ov( new auto (\
   [nargin](coder_value_list& output, const octave_value_list& arg, int nout)->void\
     {\
       return call_narginchk (output, nargin, arg);\
-    }));\
+    })));\
 })());
 
 #define NARGINCHK Narg(narginchk_, narginchk_maker)
 
-#define NARGOUTCHK_MAKER Symbol narginchk_maker(fcn2ov(\
+#define NARGOUTCHK_MAKER Symbol narginchk_maker(sfcn2ov( new auto (\
   [nargout](coder_value_list& output, const octave_value_list& arg, int nout)->void \
   {\
     return call_nargoutchk (output, nargout, arg, nout);\
-  }))
+  })))
 
 #define NARGOUTCHK Narg(nargoutchk_, nargoutchk_maker)
 
@@ -1668,28 +1709,28 @@ template <int size>
   [&args]()\
   {\
     int nargin = ovl_length(args);\
-    return Symbol (fcn2ov ( \
+    return Symbol (sfcn2ov( new auto ( \
       [nargin](coder_value_list& output, const octave_value_list& arg, int nout)->void \
       {\
         return call_nargin (output, nargin, arg, nout);\
       }));\
-  })());
+  }))());
 
 #define NARGIN Narg(nargin_, nargin_maker)
 
-#define NARGOUT_MAKER Symbol nargout_maker(fcn2ov(\
+#define NARGOUT_MAKER Symbol nargout_maker(sfcn2ov( new auto (\
   [nargout](coder_value_list& output, const octave_value_list& arg, int nout)->void \
   {\
     return call_nargout (output, nargout, arg, nout);\
-  }));
+  })));
 
 #define NARGOUT Narg(nargout_, nargout_maker)
 
-#define ISARGOUT_MAKER Symbol isargout_maker(fcn2ov(\
+#define ISARGOUT_MAKER Symbol isargout_maker(sfcn2ov( new auto (\
   [nargout, &output](coder_value_list& out, const octave_value_list& arg, int nout)->void\
   {\
     return call_isargout (out, nargout, output, arg, nout);\
-  }));
+  })));
 
 #define ISARGOUT Narg(isargout_, isargout_maker)
 
@@ -1719,21 +1760,22 @@ template <int size>
     static const std::string s = R"source(
 
 #include <cassert>
-#include "error.h"
-#include "ov-null-mat.h"
-#include "ov-bool.h"
-#include "Matrix.h"
-#include "parse.h"
-#include "dynamic-ld.h"
-#include "file-ops.h"
-#include "builtin-defun-decls.h"
-#include "oct-env.h"
-#include "ov-typeinfo.h"
-#include "lo-array-errwarn.h"
-#include "ov-fcn-handle.h"
-#include "ov-cs-list.h"
-#include "ov-struct.h"
-#include "quit.h"
+#include <functional>
+#include <octave/error.h>
+#include <octave/ov-null-mat.h>
+#include <octave/ov-bool.h>
+#include <octave/Matrix.h>
+#include <octave/parse.h>
+#include <octave/dynamic-ld.h>
+#include <octave/file-ops.h>
+#include <octave/builtin-defun-decls.h>
+#include <octave/oct-env.h>
+#include <octave/ov-typeinfo.h>
+#include <octave/lo-array-errwarn.h>
+#include <octave/ov-fcn-handle.h>
+#include <octave/ov-cs-list.h>
+#include <octave/ov-struct.h>
+#include <octave/quit.h>
 
 #if defined (CODER_BUILDMODE_NOT_SINGLE)
 #include "coder.h"
@@ -2258,7 +2300,7 @@ namespace coder
   {
   public:
 
-    coder_stateful_function():s(){}
+    coder_stateful_function():s(new auto ([](coder_value_list&, const octave_value_list&, int){})){}
 
     template <typename F, typename std::enable_if<
               !std::is_convertible<F,coder_stateless_function::fcn>::value, int>::type = 0 >
@@ -2314,7 +2356,7 @@ namespace coder
 
   private:
 
-    std::function<void(coder_value_list&, const octave_value_list&, int)> s;
+    MyFunction<void(coder_value_list&, const octave_value_list&, int)> s;
     DECLARE_OV_TYPEID_FUNCTIONS_AND_DATA
   };
 
@@ -2337,12 +2379,7 @@ namespace coder
     return new coder_stateless_function(f);
   }
 
-  octave_base_value* stdfcntoov (const std::function<void(coder_value_list&, const octave_value_list&,int)>& fcn)
-  {
-    return new coder_stateful_function(fcn);
-  }
-
-  octave_base_value* stdfcntoov (std::function<void(coder_value_list&, const octave_value_list&,int)>&& fcn)
+  octave_base_value* myfcntoov (MyFunction<void(coder_value_list&, const octave_value_list&, int)>&& fcn)
   {
     return new coder_stateful_function(std::move (fcn));
   }
@@ -4793,7 +4830,7 @@ namespace coder
         auto fm = fmaker;
         auto nm = name;
 
-        auto * h = new octave_fcn_handle (octave_value (fcn2ov (
+        auto * h = new octave_fcn_handle (octave_value (sfcn2ov( new auto (
               [=](coder_value_list& output, const octave_value_list& args, int nargout)->void
               {
                 bool is_called = method_dispatch (output, nm, args, nargout);
@@ -4802,7 +4839,7 @@ namespace coder
                   return;
 
                  fm ().call (output, nargout, args);
-              }))
+              })))
 #if OCTAVE_MAJOR_VERSION < 6
               , name
 #endif
@@ -4827,14 +4864,14 @@ namespace coder
           {
             auto nm = name;
 
-            auto * h = new octave_fcn_handle (octave_value (fcn2ov (
+            auto * h = new octave_fcn_handle (octave_value (sfcn2ov( new auto (
                   [=](coder_value_list& output, const octave_value_list& args, int nargout)->void
                   {
                     bool is_called = method_dispatch (output, nm, args, nargout);
 
                     if (! is_called)
                       error ("coder: \"%s\" cannot be evaluated as function handle", nm);
-                  }))
+                  })))
 #if OCTAVE_MAJOR_VERSION < 6
                   , name
 #endif
@@ -4922,7 +4959,7 @@ namespace coder
 
             octave_value arg = get_struct_index (*std::prev (args.end ()), endindex);
 
-            return coder_value (new octave_fcn_handle (octave_value (fcn2ov (
+            return coder_value (new octave_fcn_handle (octave_value (sfcn2ov( new auto (
               [=](coder_value_list& output, const octave_value_list& args, int nargout)->void
               {
                 coder_value_list arg_list;
@@ -4941,7 +4978,7 @@ namespace coder
                 octave_value base_expr = partial_expr_val;
 
                 output.append (base_expr.subsref (".(", arg_list, nargout));
-              }))));
+              })))));
           }
         else
           err_invalid_fcn_handle (name);
