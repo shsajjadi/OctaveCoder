@@ -1713,8 +1713,8 @@ template <int size>
       [nargin](coder_value_list& output, const octave_value_list& arg, int nout)->void \
       {\
         return call_nargin (output, nargin, arg, nout);\
-      }));\
-  }))());
+      })));\
+  })());
 
 #define NARGIN Narg(nargin_, nargin_maker)
 
