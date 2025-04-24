@@ -365,9 +365,9 @@ namespace coder_compiler
 
             continue;
           }
-        else if (! (start_node->type == file_type::m || start_node->type == file_type::cmdline))
+        else if (! (start_node->type == file_type::m || start_node->type == file_type::cmdline || start_node->type == file_type::script))
           {
-            warning ("coder: cannot create oct file from \"%s\" that isn't a m function or commandline function", fname.c_str ());
+            warning ("coder: cannot create oct file from \"%s\" that isn't a script or m function or commandline function", fname.c_str ());
 
             *out_name_it++;
 
@@ -842,9 +842,45 @@ namespace coder_compiler
               octave_stdout << "  linking " << filename + shared_ext << "\n";
             }
 
+          auto get_script_deps = [&]()
+          {
+            std::unordered_set<coder_file_ptr> scriptdeps;
+
+            const auto& dependency = analyser.dependency ().at (file);
+
+            std::function <void(const std::unordered_set<coder_file_ptr>&)> get_dep;
+
+            get_dep = [&](const std::unordered_set<coder_file_ptr>& depends)
+            {
+              for (const auto&  file: depends)
+                {
+                  if (! scriptdeps.count (file) && ! dependency.count(file))
+                    {
+                      scriptdeps.insert(file);
+                    }
+
+                  if (file->type == file_type::script)
+                    {
+                      get_dep (analyser.dependency ().at (file));
+                    }
+                }
+            };
+
+            get_dep (dependency);
+
+            return scriptdeps;
+          };
+
           octave_value_list dep_names = ovl (octave_value ("-lcoder"));
 
           for(const auto& f: analyser.dependency ().at(file) )
+            {
+              dep_names.append ( octave_value ("-l" + mangle(lowercase (f->name)) + std::to_string(f->id)));
+            }
+
+          auto scriptdeps = get_script_deps ();
+
+          for(const auto& f: scriptdeps)
             {
               dep_names.append ( octave_value ("-l" + mangle(lowercase (f->name)) + std::to_string(f->id)));
             }
@@ -885,34 +921,63 @@ namespace coder_compiler
 
       std::ofstream source (cpp);
 
-      header
-        << "#pragma once\n"
-        << "namespace coder{struct Symbol;}\n"
-        << "using namespace coder;\n"
-        << "namespace "
-        << bridge_nsname
-        << "\n{\n"
-        << "  const Symbol& "
-        << mangle(sym_name) << "make();\n"
-        << "}\n";
+      if (file->type == file_type::script)
+        header
+          << "#pragma once\n"
+          << "namespace coder{struct Symbol;}\n"
+          << "using namespace coder;\n"
+          << "namespace "
+          << bridge_nsname
+          << "\n{\n"
+          << "  const Symbol& "
+          << "script_entry ();\n"
+          << "}\n";
+      else
+        header
+          << "#pragma once\n"
+          << "namespace coder{struct Symbol;}\n"
+          << "using namespace coder;\n"
+          << "namespace "
+          << bridge_nsname
+          << "\n{\n"
+          << "  const Symbol& "
+          << mangle(sym_name) << "make();\n"
+          << "}\n";
 
       header.close ();
 
-      source
-        << "#include" << quote("coder.h") << "\n"
-        << "#include" << quote(bridge_filename + ".h") << "\n"
-        << "#include" << quote(filename + ".h") << "\n"
-        << "using namespace coder;\n"
-        << "namespace "
-        << bridge_nsname
-        << "\n{\n"
-        << "  const Symbol& "
-        << mangle(sym_name) << "make()\n  {\n"
-        << "    static const Symbol "
-        << mangle(sym_name)
-        << " (Copy (" << nsname  << "::" << mangle (sym_name) << "make()" << "));\n"
-        << "    return " << mangle(sym_name) << ";\n"
-        << "  }\n}\n";
+      if (file->type == file_type::script)
+        source
+          << "#include" << quote("coder.h") << "\n"
+          << "#include" << quote(bridge_filename + ".h") << "\n"
+          << "#include" << quote(filename + ".h") << "\n"
+          << "using namespace coder;\n"
+          << "namespace "
+          << bridge_nsname
+          << "\n{\n"
+          << "  const Symbol& "
+          << "script_entry ()\n  {\n"
+          << "    static const Symbol "
+          << mangle(sym_name)
+          << " (Copy (" << nsname  << "::" << "script_entry ()" << "));\n"
+          << "    return " << mangle(sym_name) << ";\n"
+          << "  }\n}\n";
+      else
+        source
+          << "#include" << quote("coder.h") << "\n"
+          << "#include" << quote(bridge_filename + ".h") << "\n"
+          << "#include" << quote(filename + ".h") << "\n"
+          << "using namespace coder;\n"
+          << "namespace "
+          << bridge_nsname
+          << "\n{\n"
+          << "  const Symbol& "
+          << mangle(sym_name) << "make()\n  {\n"
+          << "    static const Symbol "
+          << mangle(sym_name)
+          << " (Copy (" << nsname  << "::" << mangle (sym_name) << "make()" << "));\n"
+          << "    return " << mangle(sym_name) << ";\n"
+          << "  }\n}\n";
 
       source.close ();
 
@@ -980,9 +1045,18 @@ namespace coder_compiler
             << ",\n{\n"
             << "  return "
             << nsname
-            << "::"
-            <<  mangle(sym_name)
-            << "make().get_value()->function_value()->call(interp.get_evaluator(),nargout,args);\n})";
+            << "::";
+
+          if (file->type == file_type::script)
+            oct_os
+              <<  "script_entry ()";
+          else
+            oct_os
+              <<  mangle(sym_name)
+              << "make ()";
+
+          oct_os
+            << ".get_value()->function_value()->call(interp.get_evaluator(),nargout,args);\n})";
 
           oct_os.close();
 
@@ -1027,9 +1101,18 @@ namespace coder_compiler
             << ",\n{\n"
             << "  return "
             << nsname
-            << "::"
-            <<  mangle(sym_name)
-            << "make ().get_value ();\n})";
+            << "::";
+
+          if (file->type == file_type::script)
+            oct_os
+              <<  "script_entry ()";
+          else
+            oct_os
+              <<  mangle(sym_name)
+              << "make ()";
+
+          oct_os
+            << ".get_value();\n})";
 
           oct_os.close ();
 
@@ -1088,9 +1171,18 @@ namespace coder_compiler
             << ",\n{\n"
             << "  return "
             << bridge_nsname
-            << "::"
-            <<  mangle(sym_name)
-            << "make ().get_value ();\n})";
+            << "::";
+
+          if (file->type == file_type::script)
+            oct_os
+              <<  "script_entry ()";
+          else
+            oct_os
+              <<  mangle(sym_name)
+              << "make ()";
+
+          oct_os
+            << ".get_value();\n})";
 
           oct_os.close ();
 

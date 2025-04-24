@@ -1752,7 +1752,7 @@ template <int size>
   }
 
 #define DEFCODER_FAST_DLD(name, doc, fcn_body)                                    \
-  octave_function *                                                           \
+  octave_function *                                                               \
   coder_make_dld_function (const octave::dynamic_library&,                        \
                             const char *, const char *, bool);                    \
   octave_base_value *                                                             \
@@ -1765,7 +1765,7 @@ template <int size>
   octave_function *                                                               \
   G ## name (const octave::dynamic_library& shl, bool relative)                   \
   {                                                                               \
-    return coder_make_dld_function (shl, #name, doc, relative);                    \
+    return coder_make_dld_function (shl, #name, doc, relative);                   \
   }
 
     )header"; return s;
