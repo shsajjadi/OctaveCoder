@@ -54,19 +54,21 @@ namespace coder_compiler
   type(type), fcn(fcn),  local_functions()
   {
     if(type == file_type::m || type == file_type::cmdline)
-      local_functions.emplace_back(name);
+      local_functions.emplace_back(symtab(name), fcn);
+    else if (type == file_type::script)
+      local_functions.emplace_back(symtab("<" + name + ">"), fcn);
   }
 
 	symtab&
   coder_file::current_local_function()
   {
-		return local_functions.back();
+		return local_functions.back().first;
 	}
 
 	void
-  coder_file::add_new_local_function(const std::string& name )
+  coder_file::add_new_local_function(const std::string& name, const octave_value& fcn)
 	{
-		local_functions.emplace_back(name);
+		local_functions.emplace_back(symtab(name), fcn);
 	}
 
   std::deque<std::vector<std::deque<symscope_ptr>>>
@@ -76,7 +78,7 @@ namespace coder_compiler
 
     for (const auto& table: local_functions)
       {
-        traverserd_scopes.push_back(table.traverse());
+        traverserd_scopes.push_back(table.first.traverse());
       }
 
     return traverserd_scopes;
@@ -241,6 +243,22 @@ namespace coder_compiler
                   }
               }
           }
+      }
+    else if ( val.is_user_script() )
+      {
+        std::string file_full_name
+          = octave::sys::env::make_absolute(octave::sys::file_ops::tilde_expand (fcn->fcn_file_name ()));
+
+        type = file_type::script;
+
+        size_t pos
+          = file_full_name.find_last_of (octave::sys::file_ops::dir_sep_str ());
+
+        dir_name
+          = file_full_name.substr (0, pos);
+
+        file_name
+          = file_full_name.substr (pos+1, file_full_name.length() - pos - 3);
       }
     else if ( val.is_builtin_function() )
       {

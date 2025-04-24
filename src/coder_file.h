@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include <octave/ov.h>
@@ -26,6 +27,7 @@ namespace coder_compiler
     package ,
     classdef,
     legacyclass,
+    script,
     unknown
   };
 
@@ -48,7 +50,7 @@ namespace coder_compiler
     current_local_function();
 
     void
-    add_new_local_function(const std::string& name = "");
+    add_new_local_function(const std::string& name = "", const octave_value& fcn = {});
 
     std::deque<std::vector<std::deque<symscope_ptr>>>
     traverse();
@@ -65,7 +67,7 @@ namespace coder_compiler
 
     octave_value fcn;
 
-    std::deque<symtab> local_functions;
+    std::deque<std::pair<symtab, octave_value>> local_functions;
   };
 
   std::string

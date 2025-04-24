@@ -151,9 +151,6 @@ namespace coder_compiler
     semantic_analyser(const octave_map& cache_index);
 
     void
-    visit_octave_user_script (octave_user_script&){}
-
-    void
     visit_argument_list (octave::tree_argument_list& lst);
 
     void
@@ -254,6 +251,9 @@ namespace coder_compiler
 
     void
     visit_handle (octave::tree_anon_fcn_handle& anon_fh);
+
+    void
+    visit_octave_user_script (octave_user_script&);
 
     void
     visit_octave_user_function (octave_user_function& fcnn);
@@ -385,6 +385,9 @@ namespace coder_compiler
     coder_file_ptr
     analyse(const std::string& name, const octave_value& fcn );
 
+    void
+    update_if_contains_script ();
+
     coder_file_ptr
     add_fcn_to_task_queue (const coder_file_ptr& this_file, const std::string& sym_name, const octave_value& val);
 
@@ -480,5 +483,7 @@ namespace coder_compiler
     std::shared_ptr<std::set<std::string>> resolvable_path_names;
 
     std::shared_ptr<std::set<std::string>> current_path_map;
+
+    std::vector<octave_value> script_functions_def;
   };
 }

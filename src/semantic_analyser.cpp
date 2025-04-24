@@ -532,6 +532,35 @@ namespace coder_compiler
   }
 
   void
+  semantic_analyser::visit_octave_user_script (octave_user_script& scr)
+  {
+    scope_stack.push (scr.scope());
+
+    unwind unw ([&](){
+      scope_stack.pop ();
+      });
+
+    octave::tree_statement_list * cmd_list = scr.body ();
+
+    insert_symbol(scr.function_value ()->name ());
+
+    if (cmd_list)
+      cmd_list->accept (*this);
+
+    for (const auto& l_fcn : script_functions_def)
+      {
+        octave_function * f = l_fcn.function_value ();
+
+        if (f)
+          {
+            current_file()->add_new_local_function(f->name (), l_fcn);
+
+            f->accept (*this);
+          }
+      }
+  }
+
+  void
   semantic_analyser::visit_octave_user_function (octave_user_function& fcnn)
   {
     scope_stack.push (fcnn.scope());
@@ -672,7 +701,7 @@ namespace coder_compiler
 
             if (!ufc.is_nested_function())
               {
-                current_file()->add_new_local_function(nm);
+                current_file()->add_new_local_function(nm, f);
 
                 ufc.accept(*this);
               }
@@ -684,10 +713,14 @@ namespace coder_compiler
   {
     octave_value fcn = fdef.function ();
 
-    octave_function *f = fcn.function_value ();
+    octave_function * f = fcn.function_value ();
 
     if (f)
-      f->accept (*this);
+      {
+        script_functions_def.push_back(fcn);
+
+        insert_symbol(f->name ());
+      }
   }
 
   void
@@ -888,6 +921,7 @@ namespace coder_compiler
         current_path_map = p;
 
         local_functions.clear();
+        script_functions_def.clear();
 
         if ((current_file()->type == file_type::m || current_file()->type == file_type::cmdline) && current_file()->fcn.is_user_function())
           {
@@ -910,9 +944,58 @@ namespace coder_compiler
 
             current_file()->fcn.user_function_value()->accept(*this);
           }
+        else if (current_file()->type == file_type::script)
+          {
+            current_file()->fcn.user_script_value()->accept(*this);
+          }
       }
 
+    update_if_contains_script ();
+
     return start_node;
+  }
+
+  void
+  semantic_analyser::update_if_contains_script ()
+  {
+    std::unordered_set<coder_file_ptr> markedfiles;
+
+    std::function <void(const std::unordered_set<coder_file_ptr>&)> update;
+
+    coder_file_ptr node;
+
+    update = [&](const std::unordered_set<coder_file_ptr>& depends)
+    {
+      for (const auto&  file: depends)
+        {
+          auto fstate = state[file];
+
+          if (fstate == file_state::New || fstate == file_state::Updated)
+            {
+              state[node] = file_state::DependencyUpdated;
+
+              return;
+            }
+
+          if (file->type == file_type::script)
+            {
+              if (! markedfiles.count (file))
+                {
+                  markedfiles.insert (file);
+
+                  update (dependency_graph.at (file));
+                }
+            }
+        }
+    };
+
+    for (const auto& elem : dependency_graph)
+      {
+        node = elem.first;
+
+        if (state[elem.first] == file_state::Old)
+          update (elem.second);
+      }
   }
 
   coder_symbol_ptr
@@ -1097,6 +1180,8 @@ namespace coder_compiler
 
         if (type == file_type::m)
           ext = ".m";
+        else if (type == file_type::script)
+          ext = ".m";
         else if (type == file_type::oct)
           ext = ".oct";
         else if (type == file_type::mex)
@@ -1113,7 +1198,7 @@ namespace coder_compiler
 
         time_t timestamp = 0;
 
-        if (type == file_type::m)
+        if (type == file_type::m || type == file_type::script)
           {
             timestamp = src.mtime();
           }
@@ -1155,7 +1240,7 @@ namespace coder_compiler
 
             if (type == file_type::oct && name != sym_name)
               {
-                new_file->add_new_local_function(sym_name);
+                new_file->add_new_local_function(sym_name, val);
               }
           }
         else
@@ -1190,7 +1275,7 @@ namespace coder_compiler
 
                 retval = file;
 
-                if (type == file_type::m  )
+                if (type == file_type::m || type == file_type::script )
                   {
                     if (! visited[file])
                       {
@@ -1288,13 +1373,13 @@ namespace coder_compiler
                       {
                         for (const auto& member: file->local_functions)
                           {
-                            if (member.name()  == sym_name)
+                            if (member.first.name()  == sym_name)
                               {
                                 return file;
                               }
                           }
 
-                        file->add_new_local_function(sym_name);
+                        file->add_new_local_function(sym_name, val);
 
                         state[file] = file_state::Updated;
                       }
@@ -1339,7 +1424,7 @@ namespace coder_compiler
 
                 if (type == file_type::oct && name != sym_name)
                   {
-                    new_file->add_new_local_function(sym_name);
+                    new_file->add_new_local_function(sym_name, val);
                   }
               }
           }
@@ -1364,15 +1449,15 @@ namespace coder_compiler
   {
     std::vector<std::tuple<coder_file_ptr,coder_file_ptr,std::string>> old_files;
 
-    octave_user_function* fcnn = nullptr;
+    octave_function* code = nullptr;
 
-    if (file->fcn.is_user_function())
-      fcnn = file->fcn.user_function_value ();
+    if (file->fcn.is_user_code())
+      code = file->fcn.function_value ();
 
-    if (! fcnn)
+    if (! code)
       return;
 
-    scope_stack.push (fcnn->scope ());
+    scope_stack.push (code->scope ());
 
     unwind unw ([&](){scope_stack.pop ();});
 
@@ -1496,7 +1581,7 @@ namespace coder_compiler
             dependency_graph[current_file()].insert(global_file);
 
             for (const auto& var: global_file->local_functions)
-              if (var.name() == sym_name)
+              if (var.first.name() == sym_name)
                 return;
 
             state[global_file] = file_state::Updated;
@@ -1638,6 +1723,8 @@ namespace coder_compiler
       "cmdline",
       "package" ,
       "classdef",
+      "legacyclass",
+      "script",
       "unknown"
     });
 
@@ -1656,7 +1743,7 @@ namespace coder_compiler
         octave_idx_type i = 0;
 
         for (const auto& global_var : file->local_functions)
-          local_functions(i++) = global_var.name();
+          local_functions(i++) = global_var.first.name();
       }
 
     if (file->type == file_type::oct)
@@ -1666,10 +1753,10 @@ namespace coder_compiler
         octave_idx_type i = 0;
 
         for (const auto& autoload : file->local_functions)
-          local_functions(i++) = autoload.name();
+          local_functions(i++) = autoload.first.name();
       }
 
-    if (file->type == file_type::m || file->type == file_type::cmdline)
+    if (file->type == file_type::m || file->type == file_type::cmdline || file->type == file_type::script)
       {
         size_t depsz = dependency_graph.at(file).size ();
 
@@ -1787,6 +1874,8 @@ namespace coder_compiler
       {"cmdline", file_type::cmdline },
       {"package" , file_type::package },
       {"classdef", file_type::classdef },
+      {"legacyclass", file_type::legacyclass },
+      {"script", file_type::script },
       {"unknown", file_type::unknown }
     });
 
@@ -1800,7 +1889,7 @@ namespace coder_compiler
 
     file_type type = filetypes.at(file_attr.contents ("type").string_value ());
 
-    std::deque<symtab> local_functions;
+    std::deque<std::pair<symtab, octave_value>> local_functions;
 
     if (type == file_type::global || type == file_type::oct)
       {
@@ -1810,7 +1899,7 @@ namespace coder_compiler
 
         for (octave_idx_type i = 0; i < n ; i++)
           {
-            local_functions.emplace_back (local_fcn (i).string_value ());
+            local_functions.emplace_back (symtab(local_fcn (i).string_value ()), octave_value());
           }
       }
 
@@ -1850,9 +1939,9 @@ namespace coder_compiler
     if (type == file_type::m || type == file_type::cmdline)
       {
         if (! res)
-          file->local_functions.emplace_back(name);
+          file->local_functions.emplace_back(symtab(name), octave_value());
         else
-          res->local_functions.emplace_back(name);
+          res->local_functions.emplace_back(symtab(name), octave_value());
 
         external_symbols[res? res : file];
 

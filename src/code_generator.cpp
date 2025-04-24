@@ -956,9 +956,31 @@ namespace coder_compiler
 #endif
 
   void
-  code_generator::visit_octave_user_script (octave_user_script&)
+  code_generator::visit_octave_user_script (octave_user_script& scr)
   {
-    warning("user script is not supported!");
+    fcn_scopes.push_back (traversed_scopes.front()[0].front());
+
+    os_src
+      << "Symbol (fcn2ov(["
+      << "](coder_value_list& output, const octave_value_list& args, int nargout)\n{\n";
+
+    increment_indent_level (os_src);
+
+    declare_and_define_variables();
+
+    octave_function * f = scr.function_value ();
+
+    os_src
+      << mangle(f->name ())
+      << ".evaluate (nargout);\n";
+
+    os_src << "return make_return_list(output);\n";
+
+    decrement_indent_level (os_src);
+
+    os_src << "}))";
+
+    fcn_scopes.pop_back ();
   }
 
   void
@@ -1109,6 +1131,21 @@ namespace coder_compiler
 
     auto scope_searcher = traversed_scopes.front()[0].front();
 
+    const auto& variables = scope[(int)symbol_type::ordinary];
+
+    set_symbols_t scripts, scripts_variables;
+    const set_symbols_t * symbols;
+
+    std::tie (scripts, scripts_variables) = find_script_variables (scope_searcher);
+
+    if (! scripts_variables.empty ())
+      {
+        scripts_variables.insert(variables.begin(), variables.end ());
+        symbols = &scripts_variables;
+      }
+    else
+      symbols = &variables;
+
     os_src
       << "ConstCast (Symbol (sfcn2ov (new auto ([=";
 
@@ -1119,7 +1156,7 @@ namespace coder_compiler
 
 		declare_persistent_variables ();
 
-    for(const auto& symbol : scope[(int)symbol_type::ordinary])
+    for(const auto& symbol : *symbols)
       {
         os_src
           << "Symbol "
@@ -1141,7 +1178,7 @@ namespace coder_compiler
                 )
                   {
                   }
-                else if (symbol->file )
+                else if (symbol->file && symbol->file->type != file_type::script)
                   {
                     os_src
                       << " = Copy (";
@@ -1157,7 +1194,7 @@ namespace coder_compiler
                   }
               }
           }
-        else if (symbol->file )
+        else if (symbol->file && symbol->file->type != file_type::script)
           {
             os_src
               << " = Copy (";
@@ -1191,6 +1228,8 @@ namespace coder_compiler
 					<< ([name]  () mutable {for (auto & c: name) c = toupper(c); return name;})()
 					<< "_MAKER;\n";
 			}
+
+		define_scripts (scripts);
   }
   void
   code_generator::visit_octave_user_function_trailer (octave_user_function& fcn)
@@ -1247,6 +1286,35 @@ namespace coder_compiler
         decrement_indent_level (os_src);
 
         os_src << "}))));";
+      }
+  }
+
+  void
+  code_generator::visit_function_def (octave::tree_function_def& fdef)
+  {
+    octave_value fcn = fdef.function ();
+
+    octave_function *f = fcn.function_value ();
+
+    if (f)
+      {
+        auto name = f->name ();
+
+        os_src
+          << mangle (name)
+          << " = ";
+
+        os_src
+          << "Copy (";
+
+        os_src
+          << mangle(current_script->name)
+          << current_script->id;
+
+        os_src
+          << "::"
+          << mangle(name)
+          << "make());\n";
       }
   }
 
@@ -2581,6 +2649,58 @@ namespace coder_compiler
   }
 
   void
+  code_generator::define_scripts(const set_symbols_t& scripts)
+  {
+		auto saved_script = current_script;
+
+		for (const auto& symbol : scripts)
+      {
+        current_script = symbol->file;
+
+        os_src
+          << mangle (symbol->name)
+          << " = ";
+
+        os_src
+          << "Symbol (sfcn2ov (new auto ([&";
+
+        os_src
+          << "](coder_value_list& output, const octave_value_list& args, int nargout)\n{\n";
+
+        increment_indent_level (os_src);
+
+        os_src
+          << "if (nargout > 0)\n";
+
+        increment_indent_level (os_src);
+
+        os_src
+          << "call_error (\"invalid call to script "
+          << symbol->name
+          << "\");\n";
+
+        decrement_indent_level (os_src);
+
+        symbol->fcn.user_script_value()->body ()->accept(*this);
+
+        os_src << "Return:\n";
+
+        increment_indent_level (os_src);
+
+        os_src << "return make_return_list(output);\n";
+
+        decrement_indent_level (os_src);
+
+        decrement_indent_level (os_src);
+
+        os_src
+          << "})));\n";
+      }
+
+    current_script = saved_script;
+  }
+
+  void
   code_generator::declare_and_define_variables()
   {
     delimiter sep;
@@ -2588,6 +2708,22 @@ namespace coder_compiler
     const auto& scope = traversed_scopes.front()[0].front()->symbols();
 
     auto scope_searcher = traversed_scopes.front()[0].front();
+
+    const auto& variables = scope[(int)symbol_type::ordinary];
+
+    set_symbols_t scripts, scripts_variables;
+    const set_symbols_t * symbols;
+
+    std::tie (scripts, scripts_variables) = find_script_variables (scope_searcher);
+
+    if (! scripts_variables.empty ())
+      {
+        scripts_variables.insert(variables.begin(), variables.end ());
+        symbols = &scripts_variables;
+      }
+    else
+      symbols = &variables;
+
 
     static const std::map<std::string,std::string> special_functions ({
       {"nargin", "NARGIN"},
@@ -2597,7 +2733,7 @@ namespace coder_compiler
       {"nargoutchk", "NARGOUTCHK"}
     });
 
-    for(const auto& symbol : scope[(int)symbol_type::ordinary])
+    for(const auto& symbol : *symbols)
       {
         os_src
           << "Symbol "
@@ -2619,7 +2755,7 @@ namespace coder_compiler
                 )
                   {
                   }
-                else if (symbol->file )
+                else if (symbol->file && symbol->file->type != file_type::script)
                   {
                     os_src
                       << " = Copy (";
@@ -2635,7 +2771,7 @@ namespace coder_compiler
                   }
               }
           }
-        else if (symbol->file )
+        else if (symbol->file && symbol->file->type != file_type::script)
           {
             os_src
               << " = Copy (";
@@ -2664,13 +2800,14 @@ namespace coder_compiler
 
     for (auto& name : special_names)
 			{
-			  if (scope_searcher->contains(name))
+			  if (scope_searcher->contains(name) || symbols-> count (std::make_shared<coder_symbol>(name)))
 				os_src
 					<< ([name]  () mutable {for (auto & c: name) c = toupper(c); return name;})()
 					<< "_MAKER;\n";
 			}
-  }
 
+		define_scripts (scripts);
+  }
 
   void
   code_generator::declare_and_define_handle_variables()
@@ -2680,6 +2817,20 @@ namespace coder_compiler
     const auto current_scope = traversed_scopes.front()[1].front();
 
     const auto& scope = current_scope->symbols();
+    const auto& variables = scope[(int)symbol_type::ordinary];
+
+    set_symbols_t scripts, scripts_variables;
+    const set_symbols_t * symbols;
+
+    std::tie (scripts, scripts_variables) = find_script_variables (current_scope);
+
+    if (! scripts_variables.empty ())
+      {
+        scripts_variables.insert(variables.begin(), variables.end ());
+        symbols = &scripts_variables;
+      }
+    else
+      symbols = &variables;
 
     traversed_scopes.front()[1].pop_front();
 
@@ -2691,7 +2842,7 @@ namespace coder_compiler
       {"nargoutchk", "NARGOUTCHK"}
     });
 
-    for(const auto& symbol : scope[(int)symbol_type::ordinary])
+    for(const auto& symbol : *symbols)
       {
         os_src
           << "Symbol "
@@ -2713,7 +2864,7 @@ namespace coder_compiler
                 )
                   {
                   }
-                else if (symbol->file)
+                else if (symbol->file && symbol->file->type != file_type::script)
                   {
                     os_src
                       << " = Copy (";
@@ -2729,7 +2880,7 @@ namespace coder_compiler
                   }
               }
           }
-        else if (symbol->file )
+        else if (symbol->file && symbol->file->type != file_type::script)
           {
             os_src
               << " = Copy (";
@@ -2763,6 +2914,8 @@ namespace coder_compiler
 					<< ([name]  () mutable {for (auto & c: name) c = toupper(c); return name;})()
 					<< "_MAKER;\n";
 			}
+
+		define_scripts (scripts);
   }
 
   void
@@ -2883,6 +3036,51 @@ namespace coder_compiler
       }
   }
 
+  std::pair<set_symbols_t, set_symbols_t>
+  code_generator::find_script_variables(const symscope_ptr& scope)
+  {
+    set_symbols_t new_scripts, new_script_variables;
+
+    const auto& symbols = scope->symbols()[(int)symbol_type::ordinary];
+
+    for(const auto& symbol : symbols)
+      {
+        if (symbol->file)
+          {
+            if (symbol->file->type == file_type::script)
+              {
+                if (! m_scripts.count(symbol))
+                  {
+                    m_scripts.insert (symbol);
+
+                    new_scripts.insert(symbol);
+
+                    const auto& script_scope = symbol->file->local_functions[0].first.current_scope ();
+
+                    const auto& symbols_in_script = script_scope->symbols ()[(int)symbol_type::ordinary];
+
+                    for(const auto& symbol : symbols_in_script)
+                      {
+                        if (! current_function_scope->contains(symbol) && ! current_function_scope->lookup_in_parent_scopes(symbol) && ! m_scripts_variables.count(symbol))
+                          {
+                            m_scripts_variables.insert (symbol);
+
+                            new_script_variables.insert (symbol);
+                          }
+                      }
+
+                    auto tmp = find_script_variables(script_scope);
+
+                    new_scripts.insert (tmp.first.begin (), tmp.first.end ());
+                    new_script_variables.insert (tmp.second.begin (), tmp.second.end ());
+                  }
+              }
+          }
+      }
+
+    return {new_scripts, new_script_variables};
+  }
+
   void
   code_generator::generate_header(  )
   {
@@ -2906,7 +3104,7 @@ namespace coder_compiler
         for (const auto& var : m_file->local_functions)
           os_hdr
             << "Symbol& "
-            << mangle(var.name())  << "make();\n";
+            << mangle(var.first.name())  << "make();\n";
       }
     else if(m_file->type == file_type::m)
       {
@@ -2935,6 +3133,36 @@ namespace coder_compiler
               }
           }
       }
+    else if(m_file->type == file_type::script)
+      {
+        os_hdr
+          << "const Symbol& "
+          << "script_entry ();\n";
+        bool first = true;
+
+        for (const auto& sub: m_file->local_functions)
+          {
+            if (first)
+              {
+                first = false;
+                continue;
+              }
+            const auto& nm = sub.first.name();
+
+            const auto& f = sub.second;
+
+            octave_function *fcn = f.function_value (true);
+
+            if (fcn && fcn->is_user_function())
+              {
+                octave_user_function& ufc = *(fcn->user_function_value());
+
+                os_hdr
+                  << "const Symbol& "
+                  << mangle(nm) << "make ();\n";
+              }
+          }
+      }
     else if(m_file->type == file_type::oct)
       {
         os_hdr << "const Symbol& " << mangle(m_file->name) << "make();\n";
@@ -2943,7 +3171,7 @@ namespace coder_compiler
           {
             os_hdr
               << "const Symbol& "
-              << mangle(var.name())  << "make();\n";
+              << mangle(var.first.name())  << "make();\n";
           }
       }
     else
@@ -2968,10 +3196,11 @@ namespace coder_compiler
 
     increment_indent_level (os_prt);
 
-    os_prt
-      << "const Symbol& "
-      << mangle(m_file->name)
-      << "make(){Symbol* sym = nullptr; return *sym;}\n";
+    if(m_file->type != file_type::script)
+      os_prt
+        << "const Symbol& "
+        << mangle(m_file->name)
+        << "make(){Symbol* sym = nullptr; return *sym;}\n";
 
     if(m_file->type == file_type::m)
       for (const auto& sub: m_file->fcn.user_function_value()->subfunctions())
@@ -2995,6 +3224,37 @@ namespace coder_compiler
             }
           }
         }
+    else if (m_file->type == file_type::script)
+      {
+        os_hdr
+          << "const Symbol& "
+          << "script_entry {Symbol* sym = nullptr; return *sym;}\n";
+
+        bool first = true;
+
+        for (const auto& sub: m_file->local_functions)
+          {
+            if (first)
+              {
+                first = false;
+                continue;
+              }
+            const auto& nm = sub.first.name();
+
+            const auto& f = sub.second;
+
+            octave_function *fcn = f.function_value (true);
+
+            if (fcn && fcn->is_user_function())
+              {
+                octave_user_function& ufc = *(fcn->user_function_value());
+
+                os_hdr
+                  << "const Symbol& "
+                  << mangle(nm) << "make(){Symbol* sym; return *sym;}\n";
+              }
+          }
+      }
 
     decrement_indent_level (os_prt);
 
@@ -3037,11 +3297,39 @@ namespace coder_compiler
     };
     if (mode != gm_compact)
       {
+        std::unordered_set<coder_file_ptr> scriptdeps;
+
+        const auto& dependency = dependency_graph.at(m_file);
+
+        std::function <void(const std::unordered_set<coder_file_ptr>&)> get_dep;
+
+        get_dep = [&](const std::unordered_set<coder_file_ptr>& depends)
+        {
+          for (const auto&  file: depends)
+            {
+
+              if (! scriptdeps.count (file) && ! dependency.count(file))
+                {
+                  scriptdeps.insert(file);
+                }
+
+              if (file->type == file_type::script)
+                {
+                  get_dep (dependency_graph.at (file));
+                }
+            }
+        };
+
+        get_dep (dependency);
+
         os_src << "#include " << quote("coder.h") << "\n";
 
         inclusion(m_file);
 
-        for ( const auto&  dep: dependency_graph.at(m_file))
+        for ( const auto&  dep: dependency)
+          inclusion(dep);
+
+        for ( const auto&  dep: scriptdeps)
           inclusion(dep);
 
         os_src << "using namespace coder;\n";
@@ -3060,16 +3348,16 @@ namespace coder_compiler
           {
             os_src
               << "Symbol& "
-              << mangle(var.name())
+              << mangle(var.first.name())
               << "make()\n{";
 
             increment_indent_level (os_src);
 
             os_src
               << "static Symbol "
-              << mangle(var.name())
+              << mangle(var.first.name())
               << "; return "
-              << mangle(var.name())  ;
+              << mangle(var.first.name())  ;
 
             decrement_indent_level (os_src);
 
@@ -3105,26 +3393,36 @@ namespace coder_compiler
           quote(undo_string_escapes1(m_file->path)));
 
         for (const auto& var : m_file->local_functions)
-          define_oct(mangle(var.name()), quote(var.name()), quote(m_file->name),
+          define_oct(mangle(var.first.name()), quote(var.first.name()), quote(m_file->name),
             quote(undo_string_escapes1(m_file->path)));
       }
     else
       {
-        if (m_file->type == file_type::m || m_file->type == file_type::cmdline)
+        if (m_file->type == file_type::m || m_file->type == file_type::cmdline || m_file->type == file_type::script)
           {
             os_src << "static Constant& Const(int);\n";
           }
 
-        os_src
-          << "const Symbol& "
-          << mangle(m_file->name)
-          << "make()\n{\n";
+        if (m_file->type != file_type::script)
+          os_src
+            << "const Symbol& "
+            << mangle(m_file->name)
+            << "make()\n{\n";
+        else
+          os_src
+            << "const Symbol& "
+            << "script_entry ()\n{\n";
 
         increment_indent_level (os_src);
 
-        os_src
-          << "static const Symbol "
-          << mangle(m_file->name) ;
+        if (m_file->type != file_type::script)
+          os_src
+            << "static const Symbol "
+            << mangle(m_file->name);
+        else
+          os_src
+            << "static const Symbol "
+            << "script";
 
         os_src << "(";
 
@@ -3141,6 +3439,10 @@ namespace coder_compiler
                 nested_fcn_names.push_back (mangle(m_file->name));
               }
 
+            current_function_scope = traversed_scopes.front()[0].front();
+            m_scripts.clear ();
+            m_scripts_variables.clear ();
+
             fcn->accept(*this);
 
             if (has_nested)
@@ -3149,6 +3451,19 @@ namespace coder_compiler
               }
 
             nesting_context -= has_nested;
+          }
+        else if (m_file->type == file_type::script)
+          {
+
+            current_function_scope = traversed_scopes.front()[0].front();
+            m_scripts.clear ();
+            m_scripts_variables.clear ();
+
+            current_script = m_file;
+
+            octave_user_script *scr = m_file->fcn.user_script_value (true);
+
+            scr->accept(*this);
           }
         else
           {
@@ -3178,9 +3493,14 @@ namespace coder_compiler
               }
           }
 
-        os_src
-          << ");\nreturn "
-          << mangle(m_file->name) ;
+        if (m_file->type != file_type::script)
+          os_src
+            << ");\nreturn "
+            << mangle(m_file->name);
+        else
+          os_src
+            << ");\nreturn "
+            << "script";
 
         os_src  << ";\n";
 
@@ -3225,6 +3545,10 @@ namespace coder_compiler
                       os_src
                         << "(";
 
+                      current_function_scope = traversed_scopes.front()[0].front();
+                      m_scripts.clear ();
+                      m_scripts_variables.clear ();
+
                       fcn->accept(*this);
 
                       os_src
@@ -3244,8 +3568,78 @@ namespace coder_compiler
                     }
                 }
             }
+        else if (m_file->type == file_type::script )
+          {
+            bool first = true;
 
-        if (m_file->type == file_type::m || m_file->type == file_type::cmdline)
+            for (const auto& sub: m_file->local_functions)
+              {
+                if (first)
+                  {
+                    first = false;
+                    continue;
+                  }
+
+                const auto& nm = sub.first.name();
+
+                const auto& f = sub.second;
+
+                octave_function *fcn = f.function_value (true);
+
+                if (fcn && fcn->is_user_function())
+                  {
+                    octave_user_function& ufc = *(fcn->user_function_value());
+
+                    if (!ufc.is_nested_function())
+                      {
+                        bool has_nested = has_nested_function (ufc);
+
+                        nesting_context += has_nested;
+
+                        if (has_nested)nested_fcn_names.push_back (mangle(nm));
+
+                        traversed_scopes.pop_front();
+
+                        os_src
+                          << "const Symbol& "
+                          << mangle(nm)
+                          << "make()\n{\n";
+
+                        increment_indent_level (os_src);
+
+                        os_src
+                          << "static const Symbol "
+                          << mangle(nm) ;
+
+                        os_src
+                          << "(";
+
+                        current_function_scope = traversed_scopes.front()[0].front();
+                        m_scripts.clear ();
+                        m_scripts_variables.clear ();
+
+                        fcn->accept(*this);
+
+                        os_src
+                          << ");\nreturn ";
+
+                        os_src
+                          << mangle(nm)
+                          << ";\n";
+
+                        decrement_indent_level (os_src);
+
+                        os_src << "}\n";
+
+                        if (has_nested) nested_fcn_names.pop_back ();
+
+                        nesting_context -= has_nested;
+                      }
+                  }
+              }
+          }
+
+        if (m_file->type == file_type::m || m_file->type == file_type::cmdline || m_file->type == file_type::script)
           {
             os_src
               << "static Constant& Const(int i)\n{\n";

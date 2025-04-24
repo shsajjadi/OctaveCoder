@@ -17,12 +17,16 @@
 #include <octave/pt-walk.h>
 #include <octave/version.h>
 
+#include "coder_symtab.h"
+
 class octave_user_function;
 
 class octave_value;
 
 namespace coder_compiler
 {
+  using set_symbols_t = std::set<coder_symbol_ptr, symscope::compare_symbol>;
+
   enum  loop_or_unwind_state
   {
     normal_context,
@@ -186,7 +190,7 @@ namespace coder_compiler
     visit_octave_user_function_trailer (octave_user_function& fcn);
 
     void
-    visit_function_def (octave::tree_function_def&){}
+    visit_function_def (octave::tree_function_def&);
 
     void
     visit_identifier (octave::tree_identifier&  id );
@@ -354,6 +358,9 @@ namespace coder_compiler
     mangle (const std::string& str);
 
     void
+    define_scripts (const set_symbols_t&);
+
+    void
     declare_and_define_variables();
 
     void
@@ -371,8 +378,8 @@ namespace coder_compiler
     void
     declare_persistent_variables();
 
-    void
-    reset();
+    std::pair <set_symbols_t, set_symbols_t>
+    find_script_variables(const symscope_ptr& scope);
 
     void
     generate_header( );
@@ -432,5 +439,14 @@ namespace coder_compiler
     std::vector<std::string> nested_fcn_names;
 
     std::vector<symscope_ptr > fcn_scopes;
+
+    coder_file_ptr current_script;
+
+    symscope_ptr current_function_scope;
+
+    set_symbols_t m_scripts;
+
+    set_symbols_t m_scripts_variables;
+
   };
 }
