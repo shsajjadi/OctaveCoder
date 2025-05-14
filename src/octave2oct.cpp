@@ -26,11 +26,11 @@ DEFUN_DLD (octave2oct, args, nargout,
 @deftypefn  {} {} octave2oct (@var{name})
 @deftypefnx  {} {} octave2oct (@var{name}, OptionName, OptionValue)
 
-Compile octave function @var{name} to .oct file.
+Compile @var{name} to .oct file.
 
 Any function name that can be called from the command-line including the name
-of a function file or a name of a command-line function is accepted.
-Octave instructions of the function and all of its dependencies are
+of a function file or a name of a command-line function is accepted. Scripts are also supported.
+Octave instructions of the function/script and all of its dependencies are
 translated to C++ and the C++ source is compiled to .oct file.
 @var{name} can be a character string or a cell array of character strings.
 If a cell array of strings is provided, for each name a .oct file is generated.
@@ -130,13 +130,10 @@ Some usage tips:
 
 * Handle to nested function is supported.
 
-* Classdef constructors or functions in package folders that are resolved as the
+* Classdef/class constructors or functions in package folders that are resolved as the
 dependencies of a function aren't compiled but they are called through the interpreter.
 
-* The only supported classdef method call is dot call : "X.setColor('RED')" and
-method dispatching "setColor(X,'RED')" isn't supported.
-
-* Compilation of script files isn't supported.
+* Currently class (classdef / old style class) method dispatch is only based on the first argument and class precedence rules are ignored. If the first argument of a function call is a classdef/class object and the class of the object has a method with the same name as the function the method is called. Otherwise the first function found on the path is called.
 
 * The name and symbol resolution is done at translation time so the workspace and scope
 of a compiled function cannot be changed/queried dynamically. Because of that, if

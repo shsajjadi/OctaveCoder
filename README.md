@@ -6,7 +6,7 @@ Octave Coder is a code generator and build system that, given a function name tr
 
     octave2oct('myfunction');
 
-All versions of GNU Octave starting from 4.4.0 are supported. Coder supports compilation of .m function files and command-line functions. Script files aren't supported. Classdef classes and the functions contained in the package folders are supported through the interpreter so the generated .oct files are just wrappers. Currently classdef method dispatch is only based on the first argument and class precedence rules are ignored. If the first argument of a function call is a classdef object and the class of the object has a method with the same name as the function the method is called. Otherwise the first function found on the path is called. Handle to nested function is also supported.
+All versions of GNU Octave starting from 4.4.0 are supported. Coder supports compilation of .m function files and command-line functions and script files. Classdef classes, old style classes and the functions contained in the package folders are supported through the interpreter so the generated .oct files are just wrappers. Currently class method dispatch is only based on the first argument and class precedence rules are ignored. If the first argument of a function call is a classdef/class object and the class of the object has a method with the same name as the function the method is called. Otherwise the first function found on the path is called. Handle to nested function is also supported.
 
 The name and symbol resolution is done at translation time so the workspace and scope of a compiled function cannot be changed/queried dynamically. Because of that, if a compiled .oct file calls functions such as "eval", "evalin", "assignin", "who" , "whos", "exist" and "clear" that dynamically change / query the workspace, they are evaluated in the workspace that the generated .oct file is called from. Moreover Adding a path to Octave's path, loading packages and autoload functions and changing the current folder via "cd" should be done before the start of the compilation. Doing so helps compiler to correctly find and resolve symbols.
 
@@ -30,6 +30,11 @@ Similar to other Octave packages download the latest *.tar.gz released package a
     > pkg install coder-4.4.0.tar.gz
     > pkg load coder
 
+In newer Octave versions the package can directly be  installed from the package index:
+
+    > pkg install -forge coder
+    > pkg load coder
+
 ### License
 
 Coder is released under GNU GPL v3.0. The generated sources are treated as data files but since they are linked against octave libraries they will get GNU GPL license.
@@ -43,8 +48,8 @@ Compile NAME to .oct file.
 
 NAME
 
-Any function name that can be called from the command-line including the name of a function file or a name of a command-line function.
-Octave instructions of the function and all of its dependencies are translated to C++ and the C++ source is compiled to .oct file.  NAME can be a character string or a cell array of character strings. If a cell array of strings is provided, for each name a .oct file is generated. If an empty string is provided no .oct file is created. It can be used in combination with "upgrade" option.
+Any function name that can be called from the command-line including the name of a function file or a name of a command-line function. Scripts are also supported.
+Octave instructions of the function/script and all of its dependencies are translated to C++ and the C++ source is compiled to .oct file.  NAME can be a character string or a cell array of character strings. If a cell array of strings is provided, for each name a .oct file is generated. If an empty string is provided no .oct file is created. It can be used in combination with "upgrade" option.
 
 The following pairs of options and values are accepted:
 
