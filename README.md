@@ -103,6 +103,7 @@ The build system internally calls the "mkoctfile" command. Additional options as
 
 - .m files that contain call to functions like 'eval' and 'clear' are not supposed to work when compiled to .oct file.
 - The functions "mlock" and "munlock" are disabled to prevent runtime errors. Those function aren't useful when are called from within .oct file.
+- In Windows there is a problem related to the paths that contain spaces. The advice is installing Octave in a path that doesn't contain spaces and all paths that are provided to octave2oct shouldn't contain spaces.
 
 ### TODO
 
