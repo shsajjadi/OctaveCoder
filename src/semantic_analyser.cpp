@@ -1187,7 +1187,7 @@ namespace coder_compiler
         else if (type == file_type::mex)
           ext = ".mex";
 
-        bool is_file_on_disk =  (type == file_type::m || type == file_type::oct || type == file_type::mex);
+        bool is_file_on_disk =  (type == file_type::m || type == file_type::script || type == file_type::oct || type == file_type::mex);
 
         std::string full_file_name ;
 
@@ -1936,7 +1936,7 @@ namespace coder_compiler
         res-> local_functions = std::move(local_functions);
       }
 
-    if (type == file_type::m || type == file_type::cmdline)
+    if (type == file_type::m || type == file_type::script || type == file_type::cmdline)
       {
         if (! res)
           file->local_functions.emplace_back(symtab(name), octave_value());
