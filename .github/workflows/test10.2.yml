@@ -22,8 +22,7 @@ jobs:
 
       - name: Create Archive
         run: |
-          git archive --format=tar dev > coder.tar
-          7z a coder.tar.gz coder.tar
+          Invoke-WebRequest https://github.com/shsajjadi/OctaveCoder/archive/refs/heads/dev.tar.gz -OutFile coder.tar.gz 
 
       # Runs a single command using the runners shell
       - name: Download Octave
