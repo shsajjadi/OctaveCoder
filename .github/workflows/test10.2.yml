@@ -22,7 +22,7 @@ jobs:
 
       - name: Create Archive
         run: |
-          git archive --format=tar -o coder.tar HEAD
+          git archive --format=tar dev > coder.tar
           7z a coder.tar.gz coder.tar
 
       # Runs a single command using the runners shell
