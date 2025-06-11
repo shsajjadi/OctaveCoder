@@ -497,7 +497,7 @@ namespace coder_compiler
     octave::sys::file_stat fs (shell_script);
 
     if (! (fs && fs.exists ()))
-      error (("The file " + shell_script + " cannot be found").c_str());
+      error ("%s", ("The file " + shell_script + " cannot be found").c_str());
 
     return shell_script;
   }
