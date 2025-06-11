@@ -21,7 +21,9 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Create Archive
-        run: git archive --format=tar.gz -o coder.tar.gz HEAD
+        run: |
+          git archive --format=tar -o coder.tar HEAD
+          7z a coder.tar.gz coder.tar
 
       # Runs a single command using the runners shell
       - name: Download Octave
