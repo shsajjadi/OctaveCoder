@@ -20,6 +20,9 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
 
+      - name: Create Archive
+        run: git archive --remote=https://github.com/shsajjadi/OctaveCoder.git dev --format=tar.gz -o coder.tar.gz
+
       # Runs a single command using the runners shell
       - name: Download Octave
         run: Invoke-WebRequest https://ftpmirror.gnu.org/octave/windows/octave-10.2.0-w64.7z -OutFile octave-10.2.0-w64.7z
@@ -29,9 +32,6 @@ jobs:
 
       - name: list files
         run: dir
-
-      - name: Create Archive
-        run: git archive --format=tar.gz -o coder.tar.gz dev
 
       - name: Install coder
         run: octave-10.2.0-w64\octave-launch  --no-gui --eval "pkg install coder.tar.gz;"
