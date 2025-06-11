@@ -594,77 +594,77 @@ template <typename T>
     double val;
   };
 
-  inline double_literal operator"" __(long double d)
+  inline double_literal operator""__(long double d)
   {
     return double_literal(double(d));
   }
 
-  inline double_literal operator"" __(unsigned long long int val)
+  inline double_literal operator""__(unsigned long long int val)
   {
     return double_literal(double(val));
   }
 
-  inline int8_literal operator"" _i8(unsigned long long int val)
+  inline int8_literal operator""_i8(unsigned long long int val)
   {
     return int8_literal(val);
   }
 
-  inline int16_literal operator"" _i16(unsigned long long int val)
+  inline int16_literal operator""_i16(unsigned long long int val)
   {
     return int16_literal(val);
   }
 
-  inline int32_literal operator"" _i32(unsigned long long int val)
+  inline int32_literal operator""_i32(unsigned long long int val)
   {
     return int32_literal(val);
   }
 
-  inline int64_literal operator"" _i64(unsigned long long int val)
+  inline int64_literal operator""_i64(unsigned long long int val)
   {
     return int64_literal(val);
   }
 
-  inline uint8_literal operator"" _ui8(unsigned long long int val)
+  inline uint8_literal operator""_ui8(unsigned long long int val)
   {
     return uint8_literal(val);
   }
 
-  inline uint16_literal operator"" _ui16(unsigned long long int val)
+  inline uint16_literal operator""_ui16(unsigned long long int val)
   {
     return uint16_literal(val);
   }
 
-  inline uint32_literal operator"" _ui32(unsigned long long int val)
+  inline uint32_literal operator""_ui32(unsigned long long int val)
   {
     return uint32_literal(val);
   }
 
-  inline uint64_literal operator"" _ui64(unsigned long long int val)
+  inline uint64_literal operator""_ui64(unsigned long long int val)
   {
     return uint64_literal(val);
   }
 
-  inline complex_literal operator"" _i(unsigned long long int val)
+  inline complex_literal operator""_i(unsigned long long int val)
   {
     return complex_literal(double(val));
   }
 
-  inline complex_literal operator"" _i(long double d)
+  inline complex_literal operator""_i(long double d)
   {
     return complex_literal(double(d));
   }
 
-  inline string_literal_sq operator"" __( const char *str, std::size_t sz)
+  inline string_literal_sq operator""__( const char *str, std::size_t sz)
   {
     return string_literal_sq (str);
   }
 
-  inline string_literal_sq operator"" _sq( const char *str, std::size_t sz)
+  inline string_literal_sq operator""_sq( const char *str, std::size_t sz)
   {
     return string_literal_sq (str);
   }
 
-  inline string_literal_dq operator"" _dq( const char *str, std::size_t sz)
+  inline string_literal_dq operator""_dq( const char *str, std::size_t sz)
   {
     return string_literal_dq (str, sz);
   }
