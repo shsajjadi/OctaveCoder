@@ -34,7 +34,7 @@ jobs:
         run: dir
 
       - name: Install coder
-        run: octave-10.2.0-w64\octave-launch  --no-gui --eval "pkg install coder.tar.gz;"
+        run: octave-10.2.0-w64\octave-launch  --no-gui --eval "pkg('uninstall', 'coder'); pkg('install','coder.tar.gz');"
 
 
       - name: compile test
