@@ -75,16 +75,38 @@ namespace coder_compiler
     };
   }
 
-  int IndentingOStreambuf::overflow( int ch )
+  int_type IndentingOStreambuf::overflow( int_type ch )
   {
-    if ( myIsAtStartOfLine && ch != '\n' )
+        if (traits_type::eq_int_type(ch, traits_type::eof())) {
+            return traits_type::not_eof(ch);
+        }
+
+        if (myIsAtStartOfLine && !traits_type::eq_int_type(ch, traits_type::to_int_type('\n'))) {
+            myDest->sputn(myIndent.data(), myIndent.size());
+        }
+
+        myIsAtStartOfLine = traits_type::eq_int_type(ch, traits_type::to_int_type('\n'));
+        return myDest->sputc(traits_type::to_char_type(ch));
+  }
+
+  std::streamsize IndentingOStreambuf::xsputn(const char* s, std::streamsize n)
+  {
+    std::streamsize written = 0;
+
+    for (std::streamsize i = 0; i < n; ++i)
       {
-        myDest->sputn( myIndent.data(), myIndent.size() );
+        if (traits_type::eq_int_type(overflow(traits_type::to_int_type(s[i])), traits_type::eof()))
+          {
+              break;
+          }
+        ++written;
       }
+    return written;
+  }
 
-    myIsAtStartOfLine = ch == '\n';
-
-    return myDest->sputc( ch );
+  int IndentingOStreambuf::sync()
+  {
+    return myDest->pubsync();
   }
 
   void IndentingOStreambuf::release ()

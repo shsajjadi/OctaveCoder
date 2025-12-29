@@ -39,7 +39,9 @@ namespace coder_compiler
   //https://stackoverflow.com/a/9600752/6579744
   protected:
 
-    virtual int overflow( int ch );
+    virtual int_type overflow(int_type ch) override;
+    virtual std::streamsize xsputn(const char* s, std::streamsize n) override;
+    virtual int sync() override;
 
   public:
 
