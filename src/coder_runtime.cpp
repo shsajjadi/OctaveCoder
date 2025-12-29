@@ -2721,8 +2721,15 @@ namespace coder
       {
         if (R.value)
           {
-            rv = static_cast<octave_base_value *>(static_cast<refcnt *>(R.value)->value);
+            auto * ref = static_cast<refcnt *>(R.value);
 
+            if (ref->value)
+              {
+                if (ref->type == 'o')
+                  rv = static_cast<octave_base_value *>(ref->value);
+                else
+                  rv = static_cast<octave_base_value *>(*static_cast<void**>(ref->value));
+              }
             if (rv)
               grab (rv);
           }
@@ -2800,8 +2807,15 @@ namespace coder
       {
         if (R.value)
           {
-            rv = static_cast<octave_base_value *>(static_cast<refcnt *>(R.value)->value);
+            auto * ref = static_cast<refcnt *>(R.value);
 
+            if (ref->value)
+              {
+                if (ref->type == 'o')
+                  rv = static_cast<octave_base_value *>(ref->value);
+                else
+                  rv = static_cast<octave_base_value *>(*static_cast<void**>(ref->value));
+              }
             if (rv)
               grab (rv);
           }
