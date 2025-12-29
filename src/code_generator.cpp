@@ -1502,7 +1502,7 @@ namespace coder_compiler
                   }
                 else
                   {
-                    std::string text_rep = quote(fn) + "__";
+                    std::string text_rep = quote(fn) + "_sq";
 
                     auto f = constant_map.find(text_rep);
 
@@ -1666,7 +1666,7 @@ namespace coder_compiler
                   << "\""
                   << row
                   << "\""
-                  << (sq ? "__" : "_dq") ;
+                  << (sq ? "_sq" : "_dq") ;
 
                 if (nstr > 1)
                   os << "}" ;
@@ -1686,20 +1686,20 @@ namespace coder_compiler
         os
           << "Colon ("
           << r.base()
-          << "__, "
+          << "_d, "
           << r.increment()
-          << "__, "
+          << "_d, "
           << r.limit()
-          << "__)";
+          << "_d)";
 #else
          os
           << "Colon ("
           << r.base()
-          << "__, "
+          << "_d, "
           << r.inc()
-          << "__, "
+          << "_d, "
           << r.limit()
-          << "__)";
+          << "_d)";
 #endif
       }
     else if ( m_value.is_real_scalar() )
@@ -1708,7 +1708,7 @@ namespace coder_compiler
           {
           case btyp_double:
             {
-              os << m_value.double_value() << "__";
+              os << m_value.double_value() << "_d";
 
               break;
             }
@@ -1786,7 +1786,7 @@ namespace coder_compiler
 
             for (octave_idx_type j = 0; j < nc; j++)
               {
-                os << m.elem(i,j) << "__";
+                os << m.elem(i,j) << "_d";
 
                 if (j < nc - 1)
                   os << ", ";
@@ -1934,7 +1934,7 @@ namespace coder_compiler
 
         for (auto& str : fields)
           {
-            std::string text_rep = quote(str) + "__";
+            std::string text_rep = quote(str) + "_sq";
 
             auto f = constant_map.find(text_rep);
 
