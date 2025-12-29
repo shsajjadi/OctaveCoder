@@ -1988,6 +1988,8 @@ namespace coder_compiler
 
     bool is_resolved = true;
 
+    bool is_script = false;
+
     auto idx = visit_dot_separated_fcn_handle (fh);
 
     if (! idx)
@@ -2003,6 +2005,8 @@ namespace coder_compiler
 
             if (is_resolved && symbol->file)
               {
+                is_script = symbol->file->type == file_type::script;
+
                 os_src
                   << "&"
                   << mangle(symbol->file->name)
@@ -2011,12 +2015,18 @@ namespace coder_compiler
               }
           }
 
-        os_src
-          << mangle(fh.name());
-
-        if (is_resolved && ! is_special_function && ! is_nested)
+        if (is_script)
           os_src
-            << "make";
+            << "script_entry";
+        else
+          {
+            os_src
+              << mangle(fh.name());
+
+            if (is_resolved && ! is_special_function && ! is_nested)
+              os_src
+                << "make";
+          }
       }
 
     os_src
