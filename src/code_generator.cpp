@@ -75,7 +75,7 @@ namespace coder_compiler
     };
   }
 
-  int_type IndentingOStreambuf::overflow( int_type ch )
+  IndentingOStreambuf::int_type IndentingOStreambuf::overflow( IndentingOStreambuf::int_type ch )
   {
         if (traits_type::eq_int_type(ch, traits_type::eof())) {
             return traits_type::not_eof(ch);
