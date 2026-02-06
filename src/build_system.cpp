@@ -370,9 +370,9 @@ namespace coder_compiler
           {
             warning ("coder: cannot create oct file from \"%s\" that isn't a script or m function or commandline function", fname.c_str ());
 
-            *out_name_it++;
+            out_name_it++;
 
-            *out_dir_it++;
+            out_dir_it++;
 
             continue;
           }
