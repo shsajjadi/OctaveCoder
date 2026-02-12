@@ -523,11 +523,9 @@ namespace coder_compiler
     auto call_mkoctfile = [&] (const std::string& args)
     {
       static const std::string mkoctfile_exe = find_mkoctfile ();
-#if OCTAVE_MAJOR_VERSION >= 11
-      octave_value_list ret = OCTAVE_DEPR_NS Fsystem (octave_value (quote ( quote (mkoctfile_exe) + " " + args)), 2);
-#else
+
       octave_value_list ret = OCTAVE_DEPR_NS Fsystem (octave_value (quote (mkoctfile_exe) + " " + args), 2);
-#endif
+
       if (ret(0).int_value () != 0)
         error ("coder: compile error");
     };
