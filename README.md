@@ -108,3 +108,7 @@ The build system internally calls the "mkoctfile" command. Additional options as
 
 - Shared memory parallelism using parfor
 - Using other backends like plain c or Eigen library instead of .oct API
+
+### AI-assisted contributions
+This repository allows AI-assisted development.
+All ai-assisted code is reviewed, tested, and approved by a human contributor.

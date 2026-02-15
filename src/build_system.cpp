@@ -370,9 +370,9 @@ namespace coder_compiler
           {
             warning ("coder: cannot create oct file from \"%s\" that isn't a script or m function or commandline function", fname.c_str ());
 
-            *out_name_it++;
+            out_name_it++;
 
-            *out_dir_it++;
+            out_dir_it++;
 
             continue;
           }
@@ -524,7 +524,7 @@ namespace coder_compiler
     {
       static const std::string mkoctfile_exe = find_mkoctfile ();
 
-      octave_value_list ret = OCTAVE_DEPR_NS Fsystem (octave_value (quote(mkoctfile_exe) + " " + args), 2);
+      octave_value_list ret = OCTAVE_DEPR_NS Fsystem (octave_value (quote (mkoctfile_exe) + " " + args), 2);
 
       if (ret(0).int_value () != 0)
         error ("coder: compile error");

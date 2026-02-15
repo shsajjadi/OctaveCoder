@@ -75,16 +75,38 @@ namespace coder_compiler
     };
   }
 
-  int IndentingOStreambuf::overflow( int ch )
+  IndentingOStreambuf::int_type IndentingOStreambuf::overflow( IndentingOStreambuf::int_type ch )
   {
-    if ( myIsAtStartOfLine && ch != '\n' )
+        if (traits_type::eq_int_type(ch, traits_type::eof())) {
+            return traits_type::not_eof(ch);
+        }
+
+        if (myIsAtStartOfLine && !traits_type::eq_int_type(ch, traits_type::to_int_type('\n'))) {
+            myDest->sputn(myIndent.data(), myIndent.size());
+        }
+
+        myIsAtStartOfLine = traits_type::eq_int_type(ch, traits_type::to_int_type('\n'));
+        return myDest->sputc(traits_type::to_char_type(ch));
+  }
+
+  std::streamsize IndentingOStreambuf::xsputn(const char* s, std::streamsize n)
+  {
+    std::streamsize written = 0;
+
+    for (std::streamsize i = 0; i < n; ++i)
       {
-        myDest->sputn( myIndent.data(), myIndent.size() );
+        if (traits_type::eq_int_type(overflow(traits_type::to_int_type(s[i])), traits_type::eof()))
+          {
+              break;
+          }
+        ++written;
       }
+    return written;
+  }
 
-    myIsAtStartOfLine = ch == '\n';
-
-    return myDest->sputc( ch );
+  int IndentingOStreambuf::sync()
+  {
+    return myDest->pubsync();
   }
 
   void IndentingOStreambuf::release ()
@@ -1480,7 +1502,7 @@ namespace coder_compiler
                   }
                 else
                   {
-                    std::string text_rep = quote(fn) + "__";
+                    std::string text_rep = quote(fn) + "_sq";
 
                     auto f = constant_map.find(text_rep);
 
@@ -1644,7 +1666,7 @@ namespace coder_compiler
                   << "\""
                   << row
                   << "\""
-                  << (sq ? "__" : "_dq") ;
+                  << (sq ? "_sq" : "_dq") ;
 
                 if (nstr > 1)
                   os << "}" ;
@@ -1664,20 +1686,20 @@ namespace coder_compiler
         os
           << "Colon ("
           << r.base()
-          << "__, "
+          << "_d, "
           << r.increment()
-          << "__, "
+          << "_d, "
           << r.limit()
-          << "__)";
+          << "_d)";
 #else
          os
           << "Colon ("
           << r.base()
-          << "__, "
+          << "_d, "
           << r.inc()
-          << "__, "
+          << "_d, "
           << r.limit()
-          << "__)";
+          << "_d)";
 #endif
       }
     else if ( m_value.is_real_scalar() )
@@ -1686,7 +1708,7 @@ namespace coder_compiler
           {
           case btyp_double:
             {
-              os << m_value.double_value() << "__";
+              os << m_value.double_value() << "_d";
 
               break;
             }
@@ -1764,7 +1786,7 @@ namespace coder_compiler
 
             for (octave_idx_type j = 0; j < nc; j++)
               {
-                os << m.elem(i,j) << "__";
+                os << m.elem(i,j) << "_d";
 
                 if (j < nc - 1)
                   os << ", ";
@@ -1912,7 +1934,7 @@ namespace coder_compiler
 
         for (auto& str : fields)
           {
-            std::string text_rep = quote(str) + "__";
+            std::string text_rep = quote(str) + "_sq";
 
             auto f = constant_map.find(text_rep);
 
@@ -1966,6 +1988,8 @@ namespace coder_compiler
 
     bool is_resolved = true;
 
+    bool is_script = false;
+
     auto idx = visit_dot_separated_fcn_handle (fh);
 
     if (! idx)
@@ -1981,6 +2005,8 @@ namespace coder_compiler
 
             if (is_resolved && symbol->file)
               {
+                is_script = symbol->file->type == file_type::script;
+
                 os_src
                   << "&"
                   << mangle(symbol->file->name)
@@ -1989,12 +2015,18 @@ namespace coder_compiler
               }
           }
 
-        os_src
-          << mangle(fh.name());
-
-        if (is_resolved && ! is_special_function && ! is_nested)
+        if (is_script)
           os_src
-            << "make";
+            << "script_entry";
+        else
+          {
+            os_src
+              << mangle(fh.name());
+
+            if (is_resolved && ! is_special_function && ! is_nested)
+              os_src
+                << "make";
+          }
       }
 
     os_src

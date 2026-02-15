@@ -594,12 +594,12 @@ template <typename T>
     double val;
   };
 
-  inline double_literal operator""__(long double d)
+  inline double_literal operator""_d(long double d)
   {
     return double_literal(double(d));
   }
 
-  inline double_literal operator""__(unsigned long long int val)
+  inline double_literal operator""_d(unsigned long long int val)
   {
     return double_literal(double(val));
   }
@@ -652,11 +652,6 @@ template <typename T>
   inline complex_literal operator""_i(long double d)
   {
     return complex_literal(double(d));
-  }
-
-  inline string_literal_sq operator""__( const char *str, std::size_t sz)
-  {
-    return string_literal_sq (str);
   }
 
   inline string_literal_sq operator""_sq( const char *str, std::size_t sz)
@@ -2726,8 +2721,15 @@ namespace coder
       {
         if (R.value)
           {
-            rv = static_cast<octave_base_value *>(static_cast<refcnt *>(R.value)->value);
+            auto * ref = static_cast<refcnt *>(R.value);
 
+            if (ref->value)
+              {
+                if (ref->type == 'o')
+                  rv = static_cast<octave_base_value *>(ref->value);
+                else
+                  rv = static_cast<octave_base_value *>(*static_cast<void**>(ref->value));
+              }
             if (rv)
               grab (rv);
           }
@@ -2805,8 +2807,15 @@ namespace coder
       {
         if (R.value)
           {
-            rv = static_cast<octave_base_value *>(static_cast<refcnt *>(R.value)->value);
+            auto * ref = static_cast<refcnt *>(R.value);
 
+            if (ref->value)
+              {
+                if (ref->type == 'o')
+                  rv = static_cast<octave_base_value *>(ref->value);
+                else
+                  rv = static_cast<octave_base_value *>(*static_cast<void**>(ref->value));
+              }
             if (rv)
               grab (rv);
           }
