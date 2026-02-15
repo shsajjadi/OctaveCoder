@@ -1,3 +1,12 @@
+coder 1.11.1 - 2026-02-15
+---------------------
+
+* Creation of oct files now is much faster in dynamic and static (cached) build modes as Octave related large headers are precompiled
+* Support of Octave scripts
+* Fix code generation when numbers aren't printed in some systems
+* Fix segfault when capturing global variables by anon function
+* Fix regressions to preserve compatibility with older Octave versions
+
 coder 1.10.1- 2025-03-30
 ---------------------
 
