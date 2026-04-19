@@ -497,7 +497,15 @@ namespace coder_compiler
     octave::sys::file_stat fs (shell_script);
 
     if (! (fs && fs.exists ()))
-      error ("%s", ("The file " + shell_script + " cannot be found").c_str());
+      {
+        shell_script
+          = concat (bindir, std::string("mkoctfile") + ext);
+
+        octave::sys::file_stat fs (shell_script);
+
+        if (! (fs && fs.exists ()))
+          error ("%s", ("The file " + shell_script + " cannot be found").c_str());
+      }
 
     return shell_script;
   }
