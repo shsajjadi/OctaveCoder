@@ -708,7 +708,7 @@ namespace coder_compiler
 
           call_mkoctfile (
             std::string(quote(obj)) + " " +
-            std::string(quote("-Wl,--output," + bin + strpl))
+            std::string(quote("-Wl,-o," + bin + strpl))
             );
         }
     };
@@ -829,7 +829,7 @@ namespace coder_compiler
 
           call_mkoctfile (
             std::string (quote(tmpobj)) + " " +
-            std::string(quote("-Wl,--output," + bin + strpl))
+            std::string(quote("-Wl,-o," + bin + strpl))
             );
 
           return true;
