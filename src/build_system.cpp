@@ -536,6 +536,8 @@ namespace coder_compiler
 
       if (ret(0).int_value () != 0)
         error ("coder: compile error");
+
+      return ret(1).string_value();
     };
 
     std::vector<coder_file_ptr> retval;
