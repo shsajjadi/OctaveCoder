@@ -497,7 +497,15 @@ namespace coder_compiler
     octave::sys::file_stat fs (shell_script);
 
     if (! (fs && fs.exists ()))
-      error ("%s", ("The file " + shell_script + " cannot be found").c_str());
+      {
+        shell_script
+          = concat (bindir, std::string("mkoctfile") + ext);
+
+        octave::sys::file_stat fs (shell_script);
+
+        if (! (fs && fs.exists ()))
+          error ("%s", ("The file " + shell_script + " cannot be found").c_str());
+      }
 
     return shell_script;
   }
@@ -528,6 +536,57 @@ namespace coder_compiler
 
       if (ret(0).int_value () != 0)
         error ("coder: compile error");
+
+      return ret(1).string_value();
+    };
+
+    auto create_dynamic_lib = [&] (const std::string& args)
+    {
+      OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
+
+      unwind unw ([&](){OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
+
+      if (ismac)
+        {
+          octave_value mkdeps = OCTAVE_DEPR_NS Fgetenv (octave_value("MKOCTFILE_OCT_LINK_DEPS"), 1)(0);
+          octave_value octdeps = OCTAVE_DEPR_NS Fgetenv (octave_value("OCT_LINK_DEPS"), 1)(0);
+
+          unwind unw ([&]()
+          {
+            if (mkdeps.numel() != 0)
+              OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("MKOCTFILE_OCT_LINK_DEPS"), mkdeps));
+            else
+              OCTAVE_DEPR_NS Funsetenv (ovl(octave_value("MKOCTFILE_OCT_LINK_DEPS")));
+
+            if (octdeps.numel() != 0)
+              OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("OCT_LINK_DEPS"), octdeps));
+            else
+              OCTAVE_DEPR_NS Funsetenv (ovl(octave_value("OCT_LINK_DEPS")));
+          });
+
+          static const std::string dylib_options = "-L" +
+            call_mkoctfile (
+                std::string(quote("-p")) + " " +
+                std::string(quote("OCTLIBDIR"))
+              ) + " " +
+            call_mkoctfile (
+              std::string(quote("-p")) + " " +
+              std::string(quote("LIBOCTINTERP"))
+            ) + " " +
+            call_mkoctfile (
+              std::string(quote("-p")) + " " +
+              std::string(quote("LIBOCTAVE"))
+            ) + " ";
+
+          OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("MKOCTFILE_OCT_LINK_DEPS"), octave_value(dylib_options)));
+          OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("OCT_LINK_DEPS"), octave_value(dylib_options)));
+
+          call_mkoctfile (args);
+
+          return;
+        }
+
+      call_mkoctfile (args);
     };
 
     std::vector<coder_file_ptr> retval;
@@ -564,18 +623,14 @@ namespace coder_compiler
 
     std::string shared_ext;
 
-    if (isunix)
-      shared_ext = ".so";
-    else if (ispc)
+    if (ispc)
       shared_ext = ".dll";
     else if (ismac)
       shared_ext = ".dylib";
+    else if (isunix)
+      shared_ext = ".so";
 
     std::string dbg = debug ? "-g" : "-g0";
-
-    std::string strp = debug ? "-O2" : "-s";
-
-    std::string strpl = debug ? "" : ",-s";
 
     std::string coptions = "-O2";
 
@@ -694,13 +749,9 @@ namespace coder_compiler
 
       if (relink)
         {
-          OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
-
-          unwind unw ([&](){OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
-
-          call_mkoctfile (
+          create_dynamic_lib (
             std::string(quote(obj)) + " " +
-            std::string(quote("-Wl,--output," + bin + strpl))
+            std::string(quote("-Wl,-o," + bin))
             );
         }
     };
@@ -815,13 +866,9 @@ namespace coder_compiler
             std::string(quote(cpp))
           );
 
-          OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
-
-          unwind unw ([&](){OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
-
-          call_mkoctfile (
+          create_dynamic_lib (
             std::string (quote(tmpobj)) + " " +
-            std::string(quote("-Wl,--output," + bin + strpl))
+            std::string(quote("-Wl,-o," + bin))
             );
 
           return true;
@@ -898,12 +945,8 @@ namespace coder_compiler
               dep_names += quote( std::string ("-l" + mangle(lowercase (f->name)) + std::to_string(f->id)))  + " ";
             }
 
-          OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
-
-          unwind unw ([&](){OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
-
-          call_mkoctfile (
-            std::string(quote("-Wl,-o," + bin + strpl)) + " " +
+          create_dynamic_lib (
+            std::string(quote("-Wl,-o," + bin)) + " " +
             std::string(quote(obj)) + " " +
             std::string(quote("-L" + bindir)) + " " +
             (dep_names)
@@ -1007,12 +1050,8 @@ namespace coder_compiler
 
       std::string dep_names = quote ("-lcoder") + " " + quote("-l" + filename) + " ";
 
-      OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
-
-      unwind unw ([&](){OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
-
-      call_mkoctfile (
-        std::string(quote("-Wl,-o," + bin + strpl)) + " " +
+      create_dynamic_lib (
+        std::string(quote("-Wl,-o," + bin)) + " " +
         std::string(quote(obj)) + " " +
         std::string(quote("-L" + bindir)) + " " +
         (dep_names)
@@ -1087,8 +1126,7 @@ namespace coder_compiler
           call_mkoctfile (
             std::string(quote("-o")) + " " +
             std::string(quote(oct)) + " " +
-            std::string(quote(obj)) + " " +
-            quote(strp)
+            std::string(quote(obj))
           );
         }
       else if (mode == bm_static)
@@ -1154,8 +1192,7 @@ namespace coder_compiler
           call_mkoctfile(
             std::string(quote("-o")) + " " +
             std::string(quote(oct)) + " " +
-            (obj_files)  + " " +
-            quote(strp)
+            (obj_files)
           );
         }
       else if (mode == bm_dynamic)
@@ -1214,8 +1251,7 @@ namespace coder_compiler
             std::string(quote("-l" + bridge_filename)) + " " +
             std::string(quote("-o")) + " " +
             std::string(quote(oct)) + " " +
-            (obj_files)  + " " +
-            quote(strp)
+            (obj_files)
           );
         }
 
