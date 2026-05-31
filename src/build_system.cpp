@@ -627,16 +627,13 @@ namespace coder_compiler
 
           static const std::string dylib_options = "-L" +
             call_mkoctfile (
-                std::string(quote("-p")) + " " +
-                std::string(quote("OCTLIBDIR"))
+                "-p OCTLIBDIR"
               ) + " " +
             call_mkoctfile (
-              std::string(quote("-p")) + " " +
-              std::string(quote("LIBOCTINTERP"))
+              "-p LIBOCTINTERP"
             ) + " " +
             call_mkoctfile (
-              std::string(quote("-p")) + " " +
-              std::string(quote("LIBOCTAVE"))
+              "-p LIBOCTAVE"
             ) + " ";
 
           OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("MKOCTFILE_OCT_LINK_DEPS"), octave_value(dylib_options)));
