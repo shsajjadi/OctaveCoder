@@ -528,6 +528,19 @@ namespace coder_compiler
       return "\"" + str + "\"";
     };
 
+    auto trim = [](std::string s)
+    {
+      s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
+          return !std::isspace(ch);
+      }));
+
+      s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
+          return !std::isspace(ch);
+      }).base(), s.end());
+
+      return s;
+    };
+
     struct unwind
     {
       unwind (std::function<void ()> fcn) : m_fcn (std::move (fcn))
@@ -599,7 +612,7 @@ namespace coder_compiler
       if (ret(0).int_value () != 0)
         error ("coder: compile error");
 
-      return ret(1).string_value();
+      return trim(ret(1).string_value());
     };
 
     auto create_dynamic_lib = [&] (const std::string& args)
