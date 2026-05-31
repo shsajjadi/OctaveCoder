@@ -604,7 +604,6 @@ namespace coder_compiler
 
     auto call_mkoctfile = [&] (const std::string& args)
     {
-      octave_stdout << args << " :\n";
       static const std::string mkoctfile_exe = find_mkoctfile ();
 
       octave_value_list ret = OCTAVE_DEPR_NS Fsystem (octave_value (quote (mkoctfile_exe) + " " + args), 2);
@@ -649,7 +648,7 @@ namespace coder_compiler
             call_mkoctfile (
               "-p LIBOCTAVE"
             ) + " ";
-octave_stdout << dylib_options << " ;\n";
+
           OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("MKOCTFILE_OCT_LINK_DEPS"), octave_value(dylib_options)));
           OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("OCT_LINK_DEPS"), octave_value(dylib_options)));
 
