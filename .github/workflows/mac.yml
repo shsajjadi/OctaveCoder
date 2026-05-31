@@ -1,0 +1,82 @@
+name: Run Octave on macOS
+on: [workflow_dispatch]
+
+jobs:
+  octave:
+    runs-on: macos-26-intel
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+
+      - name: Install Octave
+        run: |
+          brew update
+          brew install octave
+      
+      - name: Export DYLD_LIBRARY_PATH for subsequent steps
+        run: |
+          echo "DYLD_LIBRARY_PATH=${GITHUB_WORKSPACE}/cache1/bin:${DYLD_LIBRARY_PATH:-}" >> $GITHUB_ENV
+      
+      - name: Verify Octave
+        run: |
+          octave --version
+
+      - name: build flags
+        run: |
+          mkoctfile -p ALL_CXXFLAGS
+          mkoctfile -p ALL_LDFLAGS
+          mkoctfile -p OCTLIBDIR
+          mkoctfile -p LIBOCTAVE
+          mkoctfile -p LIBOCTINTERP
+          
+      - name: Install coder
+        run: |
+          octave --eval "pkg install https://github.com/shsajjadi/OctaveCoder/archive/refs/heads/dev.tar.gz"
+
+#https://github.com/shsajjadi/OctaveCoder/archive/refs/heads/dev.tar.gz"
+#      - name: test coder single
+#        run: |
+#          octave --eval "pkg ('load' ,'coder');;octave2oct('unique','verbose',1,'KeepSource',1,'outname','siunique','CompilerOptions','-v')"
+
+#      - name: check .oct file type
+#        run: |
+#          otool -hv siunique.oct
+
+#      - name: test created function
+#        run: |
+#          octave --eval "siunique([4 3 33 3 2 5 3 2])"   
+          
+ #     - name: test coder static
+#        run: |
+#          octave --eval "pkg ('load' ,'coder');octave2oct('unique','mode','static','cache','cache2','verbose',1,'KeepSource',1,'outname','stunique','CompilerOptions','-v')"
+
+
+#      - name: test created function
+#        run: |
+#          octave --eval "stunique([4 3 33 3 2 5 3 2])"   
+
+
+      - name: test coder dynamic
+        run: |
+          octave --eval "pkg ('load' ,'coder');octave2oct('unique','mode','dynamic','cache','cache1','verbose',1,'KeepSource',1,'outname','dyunique','CompilerOptions','-v')"
+
+      - name: check dyn .oct file type
+        run: |
+          otool -hv dyunique.oct   
+
+      - name: test created function
+        run: |
+          octave --eval "dyunique([4 3 33 3 2 5 3 2])"   
+
+      - name: check coder.so file type
+        run: |
+          otool -hv cache1/bin/libcoder.so 
+
+      - name: test coder dynamic for repmat
+        run: |
+          octave --eval "pkg ('load' ,'coder');octave2oct('repmat','mode','dynamic','cache','cache1','verbose',1,'KeepSource',1,'outname','dyrepmat','CompilerOptions','-v')"
+
+      - name: test created function
+        run: |
+          octave --eval "dyunique([4 3 33 3 2 5 3 2]),dyrepmat(1,5),clear('dyrepmat'),dyunique([4 3 33 3 2 5 3 2]),dyrepmat(1,5)"   
