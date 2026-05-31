@@ -572,12 +572,12 @@ namespace coder_compiler
 
     std::string shared_ext;
 
-    if (isunix)
-      shared_ext = ".so";
-    else if (ispc)
+    if (ispc)
       shared_ext = ".dll";
     else if (ismac)
       shared_ext = ".dylib";
+    else if (isunix)
+      shared_ext = ".so";
 
     std::string dbg = debug ? "-g" : "-g0";
 
