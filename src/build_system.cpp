@@ -528,6 +528,67 @@ namespace coder_compiler
       return "\"" + str + "\"";
     };
 
+    struct unwind
+    {
+      unwind (std::function<void ()> fcn) : m_fcn (std::move (fcn))
+      {}
+
+      ~unwind ()
+      {
+        m_fcn ();
+      }
+
+      std::function<void ()> m_fcn;
+    };
+
+    std::vector<coder_file_ptr> retval;
+
+    using octave::sys::file_ops::concat;
+
+    using octave::sys::file_ops::tilde_expand;
+
+    bool isunix = OCTAVE_DEPR_NS F__octave_config_info__ (octave_value("unix"),1)(0).bool_value ();
+
+    bool ispc = OCTAVE_DEPR_NS F__octave_config_info__ (octave_value("windows"),1)(0).bool_value ();
+
+    bool ismac = OCTAVE_DEPR_NS F__octave_config_info__ (octave_value("mac"),1)(0).bool_value ();
+
+    std::string  DL_LDFLAGS = OCTAVE_DEPR_NS F__octave_config_info__ (octave_value("DL_LDFLAGS"),1)(0).string_value ();
+
+    std::string  SH_LDFLAGS = OCTAVE_DEPR_NS F__octave_config_info__ (octave_value("SH_LDFLAGS"),1)(0).string_value ();
+
+    std::string libdir = tilde_expand(concat (cache_directory, "lib"));
+
+    std::string srcdir = tilde_expand(concat (cache_directory, "src"));
+
+    std::string incdir = tilde_expand(concat (cache_directory, "include"));
+
+    std::string bindir = tilde_expand(concat (cache_directory, "bin"));
+
+    std::string tmpdir = tilde_expand(concat (cache_directory, "tmp"));
+
+    std::stringstream header ;
+
+    std::stringstream source ;
+
+    std::stringstream partial_source ;
+
+    std::string shared_ext;
+
+    if (ispc)
+      shared_ext = ".dll";
+    else if (ismac)
+      shared_ext = ".dylib";
+    else if (isunix)
+      shared_ext = ".so";
+
+    std::string dbg = debug ? "-g" : "-g0";
+
+    std::string coptions = "-O2";
+
+    if (! compiler_options.empty ())
+      coptions = compiler_options;
+
     auto call_mkoctfile = [&] (const std::string& args)
     {
       static const std::string mkoctfile_exe = find_mkoctfile ();
@@ -589,54 +650,6 @@ namespace coder_compiler
       call_mkoctfile (args);
     };
 
-    std::vector<coder_file_ptr> retval;
-
-    using octave::sys::file_ops::concat;
-
-    using octave::sys::file_ops::tilde_expand;
-
-    bool isunix = OCTAVE_DEPR_NS F__octave_config_info__ (octave_value("unix"),1)(0).bool_value ();
-
-    bool ispc = OCTAVE_DEPR_NS F__octave_config_info__ (octave_value("windows"),1)(0).bool_value ();
-
-    bool ismac = OCTAVE_DEPR_NS F__octave_config_info__ (octave_value("mac"),1)(0).bool_value ();
-
-    std::string  DL_LDFLAGS = OCTAVE_DEPR_NS F__octave_config_info__ (octave_value("DL_LDFLAGS"),1)(0).string_value ();
-
-    std::string  SH_LDFLAGS = OCTAVE_DEPR_NS F__octave_config_info__ (octave_value("SH_LDFLAGS"),1)(0).string_value ();
-
-    std::string libdir = tilde_expand(concat (cache_directory, "lib"));
-
-    std::string srcdir = tilde_expand(concat (cache_directory, "src"));
-
-    std::string incdir = tilde_expand(concat (cache_directory, "include"));
-
-    std::string bindir = tilde_expand(concat (cache_directory, "bin"));
-
-    std::string tmpdir = tilde_expand(concat (cache_directory, "tmp"));
-
-    std::stringstream header ;
-
-    std::stringstream source ;
-
-    std::stringstream partial_source ;
-
-    std::string shared_ext;
-
-    if (ispc)
-      shared_ext = ".dll";
-    else if (ismac)
-      shared_ext = ".dylib";
-    else if (isunix)
-      shared_ext = ".so";
-
-    std::string dbg = debug ? "-g" : "-g0";
-
-    std::string coptions = "-O2";
-
-    if (! compiler_options.empty ())
-      coptions = compiler_options;
-
     auto generate = [&](const coder_file_ptr& file, bool iscyclic = false)->void
     {
       if ( mode == bm_single || analyser.should_generate (file))
@@ -665,19 +678,6 @@ namespace coder_compiler
               cgen.generate(false);
             }
         }
-    };
-
-    struct unwind
-    {
-      unwind (std::function<void ()> fcn) : m_fcn (std::move (fcn))
-      {}
-
-      ~unwind ()
-      {
-        m_fcn ();
-      }
-
-      std::function<void ()> m_fcn;
     };
 
 #if OCTAVE_MAJOR_VERSION < 10
