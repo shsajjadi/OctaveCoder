@@ -583,10 +583,6 @@ namespace coder_compiler
 
     std::string dbg = debug ? "-g" : "-g0";
 
-    std::string strp = debug ? "-O2" : "-s";
-
-    std::string strpl = debug ? "" : ",-s";
-
     std::string coptions = "-O2";
 
     if (! compiler_options.empty ())
@@ -710,7 +706,7 @@ namespace coder_compiler
 
           call_mkoctfile (
             std::string(quote(obj)) + " " +
-            std::string(quote("-Wl,-o," + bin + strpl))
+            std::string(quote("-Wl,-o," + bin))
             );
         }
     };
@@ -831,7 +827,7 @@ namespace coder_compiler
 
           call_mkoctfile (
             std::string (quote(tmpobj)) + " " +
-            std::string(quote("-Wl,-o," + bin + strpl))
+            std::string(quote("-Wl,-o," + bin))
             );
 
           return true;
@@ -913,7 +909,7 @@ namespace coder_compiler
           unwind unw ([&](){OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
 
           call_mkoctfile (
-            std::string(quote("-Wl,-o," + bin + strpl)) + " " +
+            std::string(quote("-Wl,-o," + bin)) + " " +
             std::string(quote(obj)) + " " +
             std::string(quote("-L" + bindir)) + " " +
             (dep_names)
@@ -1022,7 +1018,7 @@ namespace coder_compiler
       unwind unw ([&](){OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
 
       call_mkoctfile (
-        std::string(quote("-Wl,-o," + bin + strpl)) + " " +
+        std::string(quote("-Wl,-o," + bin)) + " " +
         std::string(quote(obj)) + " " +
         std::string(quote("-L" + bindir)) + " " +
         (dep_names)
@@ -1097,8 +1093,7 @@ namespace coder_compiler
           call_mkoctfile (
             std::string(quote("-o")) + " " +
             std::string(quote(oct)) + " " +
-            std::string(quote(obj)) + " " +
-            quote(strp)
+            std::string(quote(obj))
           );
         }
       else if (mode == bm_static)
@@ -1164,8 +1159,7 @@ namespace coder_compiler
           call_mkoctfile(
             std::string(quote("-o")) + " " +
             std::string(quote(oct)) + " " +
-            (obj_files)  + " " +
-            quote(strp)
+            (obj_files)
           );
         }
       else if (mode == bm_dynamic)
@@ -1224,8 +1218,7 @@ namespace coder_compiler
             std::string(quote("-l" + bridge_filename)) + " " +
             std::string(quote("-o")) + " " +
             std::string(quote(oct)) + " " +
-            (obj_files)  + " " +
-            quote(strp)
+            (obj_files)
           );
         }
 
