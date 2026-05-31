@@ -540,6 +540,55 @@ namespace coder_compiler
       return ret(1).string_value();
     };
 
+    auto create_dynamic_lib = [&] (const std::string& args)
+    {
+      OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
+
+      unwind unw ([&](){OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
+
+      if (ismac)
+        {
+          octave_value mkdeps = OCTAVE_DEPR_NS Fgetenv (octave_value("MKOCTFILE_OCT_LINK_DEPS"), 1)(0);
+          octave_value octdeps = OCTAVE_DEPR_NS Fgetenv (octave_value("OCT_LINK_DEPS"), 1)(0);
+
+          unwind unw ([&]()
+          {
+            if (mkdeps.numel() != 0)
+              OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("MKOCTFILE_OCT_LINK_DEPS"), mkdeps));
+            else
+              OCTAVE_DEPR_NS Funsetenv (ovl(octave_value("MKOCTFILE_OCT_LINK_DEPS")));
+
+            if (octdeps.numel() != 0)
+              OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("OCT_LINK_DEPS"), octdeps));
+            else
+              OCTAVE_DEPR_NS Funsetenv (ovl(octave_value("OCT_LINK_DEPS")));
+          });
+
+          static const std::string dylib_options = "-L" +
+            call_mkoctfile (
+                std::string(quote("-p")) + " " +
+                std::string(quote("OCTLIBDIR"))
+              ) + " " +
+            call_mkoctfile (
+              std::string(quote("-p")) + " " +
+              std::string(quote("LIBOCTINTERP"))
+            ) + " " +
+            call_mkoctfile (
+              std::string(quote("-p")) + " " +
+              std::string(quote("LIBOCTAVE"))
+            ) + " ";
+
+          OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("MKOCTFILE_OCT_LINK_DEPS"), octave_value(dylib_options)));
+          OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("OCT_LINK_DEPS"), octave_value(dylib_options)));
+
+          call_mkoctfile (args);
+
+          return;
+        }
+
+      call_mkoctfile (args);
+    };
+
     std::vector<coder_file_ptr> retval;
 
     using octave::sys::file_ops::concat;
@@ -700,11 +749,7 @@ namespace coder_compiler
 
       if (relink)
         {
-          OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
-
-          unwind unw ([&](){OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
-
-          call_mkoctfile (
+          create_dynamic_lib (
             std::string(quote(obj)) + " " +
             std::string(quote("-Wl,-o," + bin))
             );
@@ -821,11 +866,7 @@ namespace coder_compiler
             std::string(quote(cpp))
           );
 
-          OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
-
-          unwind unw ([&](){OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
-
-          call_mkoctfile (
+          create_dynamic_lib (
             std::string (quote(tmpobj)) + " " +
             std::string(quote("-Wl,-o," + bin))
             );
@@ -904,11 +945,7 @@ namespace coder_compiler
               dep_names += quote( std::string ("-l" + mangle(lowercase (f->name)) + std::to_string(f->id)))  + " ";
             }
 
-          OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
-
-          unwind unw ([&](){OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
-
-          call_mkoctfile (
+          create_dynamic_lib (
             std::string(quote("-Wl,-o," + bin)) + " " +
             std::string(quote(obj)) + " " +
             std::string(quote("-L" + bindir)) + " " +
@@ -1013,11 +1050,7 @@ namespace coder_compiler
 
       std::string dep_names = quote ("-lcoder") + " " + quote("-l" + filename) + " ";
 
-      OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(SH_LDFLAGS) ));
-
-      unwind unw ([&](){OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("DL_LDFLAGS"), octave_value(DL_LDFLAGS)));});
-
-      call_mkoctfile (
+      create_dynamic_lib (
         std::string(quote("-Wl,-o," + bin)) + " " +
         std::string(quote(obj)) + " " +
         std::string(quote("-L" + bindir)) + " " +
