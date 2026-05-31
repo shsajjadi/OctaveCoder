@@ -69,9 +69,9 @@ jobs:
         run: |
           octave --eval "dyunique([4 3 33 3 2 5 3 2])"   
 
-      - name: check coder.so file type
+      - name: check coder.dylib file type
         run: |
-          otool -hv cache1/bin/libcoder.so 
+          otool -hv cache1/bin/libcoder.dylib
 
       - name: test coder dynamic for repmat
         run: |
