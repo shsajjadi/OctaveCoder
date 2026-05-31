@@ -636,7 +636,7 @@ namespace coder_compiler
             call_mkoctfile (
               "-p LIBOCTAVE"
             ) + " ";
-
+octave_stdout << dylib_options << " ;\n";
           OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("MKOCTFILE_OCT_LINK_DEPS"), octave_value(dylib_options)));
           OCTAVE_DEPR_NS Fsetenv (ovl(octave_value("OCT_LINK_DEPS"), octave_value(dylib_options)));
 
