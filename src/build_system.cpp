@@ -570,6 +570,10 @@ namespace coder_compiler
 
     std::string  SH_LDFLAGS = OCTAVE_DEPR_NS F__octave_config_info__ (octave_value("SH_LDFLAGS"),1)(0).string_value ();
 
+    auto pos = SH_LDFLAGS.find("-single_module");
+    if (pos != std::string::npos)
+      SH_LDFLAGS.erase (pos, std::string("-single_module").length());
+
     std::string libdir = tilde_expand(concat (cache_directory, "lib"));
 
     std::string srcdir = tilde_expand(concat (cache_directory, "src"));
